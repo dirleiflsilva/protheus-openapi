@@ -1,0 +1,50 @@
+# Configuracoes locais de agentes de IA
+/AGENTS.md
+/.agents/skills/
+
+# Artefatos de compilacao e distribuicao Protheus
+*.rpo
+*.ppo
+*.ptm
+*.o
+/build/
+/dist/
+
+# Configuracoes locais do ambiente Protheus/TDS
+/.vscode/servers.json
+/appserver.ini
+/dbaccess.ini
+/smartclient.ini
+
+# Arquivos temporarios, backups e logs
+*.bak
+*.old
+*.tmp
+*.temp
+*.log
+*.dmp
+/logs/
+/temp/
+/tmp/
+
+# Bancos e indices locais
+*.dbf
+*.cdx
+*.fpt
+
+# Testes Python/TIR
+__pycache__/
+*.py[cod]
+/.pytest_cache/
+/.coverage
+/htmlcov/
+/.venv/
+
+# IDEs e sistema operacional
+/.settings/
+/.project
+/.metadata/
+.DS_Store
+Thumbs.db
+Desktop.ini
+*~
