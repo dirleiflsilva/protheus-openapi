@@ -1,0 +1,30 @@
+#include "tlpp-core.th"
+#include "tlpp-rest.th"
+
+/*/{Protheus.doc}
+    Endpoint mínimo para validar o REST TL++ e sua documentação nativa.
+    @type function
+    @author Dirlei Silva
+    @since 2026-08-20
+    @return logical, Resultado do envio da resposta REST
+*/
+@Get(;
+    endpoint="/api/v1/hello",;
+    title="Hello World",;
+    description="Retorna uma mensagem Hello World gerada por um endpoint TL++.",;
+    responses='[{"statusCode":200,"description":"Hello World retornado com sucesso."}]';
+)
+User Function HloApi() as Logical
+
+    Local jResp := JsonObject():New() as Json
+    Local cResp := "" as Character
+
+    jResp["message"]  := "Hello World"
+    jResp["language"] := "TL++"
+    jResp["status"]   := "success"
+    cResp := jResp:ToJson()
+
+    oRest:SetStatusCode(200)
+    oRest:SetKeyHeaderResponse("Content-Type", "application/json")
+
+Return oRest:SetResponse(cResp)
