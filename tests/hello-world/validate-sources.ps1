@@ -43,21 +43,39 @@ $contracts = @{
     }
     export = @{
         Path = Join-Path $repoRoot "examples\hello-world\openapi-export.tlpp"
-        DocumentationPatterns = @()
-        DeclarationPattern = $null
+        DocumentationPatterns = @(
+            '(?m)^[\t ]*@type[\t ]+function[\t ]*\r?$',
+            '(?m)^[\t ]*@author[\t ]+Dirlei Silva[\t ]*\r?$',
+            '(?m)^[\t ]*@since[\t ]+2026-08-20[\t ]*\r?$',
+            '(?m)^[\t ]*@return[\t ]+logical,[\t ]+Resultado do envio da resposta REST[\t ]*\r?$'
+        )
+        DeclarationPattern = '(?ms)/\*/\{Protheus\.doc\}(?<body>.*?)\*/[\t \r\n]*^[\t ]*@Get[\t ]*\([\t ]*;[^\r\n]*\r?$.*?^[\t ]*\)[\t ]*\r?$[\t \r\n]*^[\t ]*User[\t ]+Function[\t ]+GenOApi[\t ]*\([\t ]*\)[\t ]+as[\t ]+Logical[\t ]*\r?$'
         Patterns = @(
             '(?m)^[\t ]*#include[\t ]+"tlpp-core\.th"[\t ]*\r?$',
             '(?m)^[\t ]*#include[\t ]+"tlpp-rest\.th"[\t ]*\r?$',
-            '(?m)^[\t ]*(?!//|/\*|\*)[^\r\n]*\bendpoint[\t ]*=[\t ]*"/api/v1/openapi/export"[^\r\n]*\r?$',
-            '(?m)^[\t ]*(?!//|/\*|\*)[^\r\n]*\btlpp\.doc\.generate[\t ]*\(',
-            '(?m)^[\t ]*(?!//|/\*|\*)[^\r\n]*"json"',
-            '(?m)^[\t ]*(?!//|/\*|\*)[^\r\n]*"hello_openapi"',
-            '(?m)^[\t ]*(?!//|/\*|\*)[^\r\n]*\{[\t ]*8084[\t ]*\}',
-            '(?m)^[\t ]*(?!//|/\*|\*)[^\r\n]*"pt-br"',
-            '(?m)^[\t ]*(?!//|/\*|\*)[^\r\n]*Content-Type',
-            '(?m)^[\t ]*(?!//|/\*|\*)[^\r\n]*application/json'
+            '(?m)^[\t ]*@Get[\t ]*\([\t ]*;[\t ]*\r?$',
+            '(?m)^[\t ]*endpoint[\t ]*=[\t ]*"/api/v1/openapi/export"[\t ]*,?[\t ]*;?[\t ]*\r?$',
+            '(?m)^[\t ]*title[\t ]*=[\t ]*"Exportar OpenAPI"[\t ]*,?[\t ]*;?[\t ]*\r?$',
+            '(?m)^[\t ]*description[\t ]*=[\t ]*"Gera o documento OpenAPI das rotas descobertas na porta REST 8084\."[\t ]*,?[\t ]*;?[\t ]*\r?$',
+            '(?m)^[\t ]*User[\t ]+Function[\t ]+GenOApi[\t ]*\([\t ]*\)[\t ]+as[\t ]+Logical[\t ]*\r?$',
+            '(?m)^[\t ]*Local[\t ]+lOk[\t ]*:=[\t ]*\.T\.[\t ]+as[\t ]+Logical[\t ]*\r?$',
+            '(?m)^[\t ]*Local[\t ]+jResp[\t ]*:=[\t ]*JsonObject[\t ]*\([\t ]*\)[\t ]*:[\t ]*New[\t ]*\([\t ]*\)[\t ]+as[\t ]+Json[\t ]*\r?$',
+            '(?ms)^[\t ]*Begin[\t ]+Sequence[\t ]*\r?$[\t \r\n]*^[\t ]*tlpp\.doc\.generate[\t ]*\([\t ]*"json"[\t ]*,[\t ]*"hello_openapi"[\t ]*,[\t ]*\{[\t ]*8084[\t ]*\}[\t ]*,[\t ]*\{[\t ]*"pt-br"[\t ]*\}[\t ]*\)[\t ]*\r?$[\t \r\n]*^[\t ]*Recover[\t ]*\r?$[\t \r\n]*^[\t ]*lOk[\t ]*:=[\t ]*\.F\.[\t ]*\r?$[\t \r\n]*^[\t ]*End[\t ]+Sequence[\t ]*\r?$',
+            '(?ms)^[\t ]*If[\t ]+lOk[\t ]*\r?$[\t \r\n]*^[\t ]*jResp[\t ]*\[[\t ]*"success"[\t ]*\][\t ]*:=[\t ]*\.T\.[\t ]*\r?$[\t \r\n]*^[\t ]*jResp[\t ]*\[[\t ]*"message"[\t ]*\][\t ]*:=[\t ]*"Exportação OpenAPI solicitada com sucesso\."[\t ]*\r?$[\t \r\n]*^[\t ]*oRest[\t ]*:[\t ]*SetStatusCode[\t ]*\([\t ]*200[\t ]*\)[\t ]*\r?$[\t \r\n]*^[\t ]*Else[\t ]*\r?$[\t \r\n]*^[\t ]*jResp[\t ]*\[[\t ]*"success"[\t ]*\][\t ]*:=[\t ]*\.F\.[\t ]*\r?$[\t \r\n]*^[\t ]*jResp[\t ]*\[[\t ]*"message"[\t ]*\][\t ]*:=[\t ]*"Falha ao solicitar a exportação OpenAPI\."[\t ]*\r?$[\t \r\n]*^[\t ]*oRest[\t ]*:[\t ]*SetStatusCode[\t ]*\([\t ]*500[\t ]*\)[\t ]*\r?$[\t \r\n]*^[\t ]*EndIf[\t ]*\r?$',
+            '(?m)^[\t ]*cResp[\t ]*:=[\t ]*jResp[\t ]*:[\t ]*ToJson[\t ]*\([\t ]*\)[\t ]*\r?$',
+            '(?m)^[\t ]*oRest[\t ]*:[\t ]*SetKeyHeaderResponse[\t ]*\([\t ]*"Content-Type"[\t ]*,[\t ]*"application/json"[\t ]*\)[\t ]*\r?$',
+            '(?m)^[\t ]*Return[\t ]+oRest[\t ]*:[\t ]*SetResponse[\t ]*\([\t ]*cResp[\t ]*\)[\t ]*\r?$'
         )
-        Responses = @()
+        Responses = @(
+            @{
+                StatusCode = 200
+                Description = "Exportação solicitada com sucesso."
+            },
+            @{
+                StatusCode = 500
+                Description = "Falha ao solicitar a exportação."
+            }
+        )
     }
 }
 
@@ -207,6 +225,10 @@ if ($contract.Responses.Count -gt 0) {
         if ($propertyNames -cnotcontains "statusCode" -or
             $propertyNames -cnotcontains "description") {
             throw "Response inválido em ${Target} na posição ${index}: propriedades obrigatórias ausentes."
+        }
+
+        if ($propertyNames.Count -ne 2) {
+            throw "Response inválido em ${Target} na posição ${index}: propriedades extras não são permitidas."
         }
 
         $statusCodeIsInteger = $actual.statusCode -is [int] -or
