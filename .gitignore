@@ -1,6 +1,7 @@
 # Configuracoes locais de agentes de IA
 /AGENTS.md
 /.agents/skills/
+/.worktrees/
 
 # Artefatos de compilacao e distribuicao Protheus
 *.rpo
