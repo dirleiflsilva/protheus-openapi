@@ -10,6 +10,7 @@
 *.o
 /build/
 /dist/
+/artifacts/local/
 
 # Configuracoes locais do ambiente Protheus/TDS
 /.vscode/servers.json
