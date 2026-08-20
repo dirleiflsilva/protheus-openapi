@@ -1,0 +1,20 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Fixture válida",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/v1/hello": {
+      "get": {
+        "title": "Hello World",
+        "description": "Retorna uma mensagem Hello World gerada por um endpoint TL++.",
+        "responses": {
+          "200": {
+            "description": "Hello World retornado com sucesso."
+          }
+        }
+      }
+    }
+  }
+}
