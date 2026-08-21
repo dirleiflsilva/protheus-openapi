@@ -1,6 +1,6 @@
 ﻿param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet("hello", "export")]
+    [ValidateSet("hello", "export", "advpl")]
     [string]$Target
 )
 
@@ -76,6 +76,42 @@ $contracts = @{
                 Description = "Falha ao solicitar a exportação."
             }
         )
+    }
+    advpl = @{
+        Path = Join-Path $repoRoot "examples\hello-world\hello-api-advpl.prw"
+        DocumentationPatterns = @(
+            '(?m)^/\*/\{Protheus\.doc\} HloAdv[\t ]*\r?$',
+            '(?m)^[\t ]*@type[\t ]+wsrestful[\t ]*\r?$',
+            '(?m)^/\*/\{Protheus\.doc\} HloAdv::Hello[\t ]*\r?$',
+            '(?m)^[\t ]*@type[\t ]+method[\t ]*\r?$',
+            '(?m)^[\t ]*@author[\t ]+Dirlei Silva[\t ]*\r?$',
+            '(?m)^[\t ]*@since[\t ]+2026-08-21[\t ]*\r?$',
+            '(?m)^[\t ]*@return[\t ]+logical,[\t ]+Resultado do envio da resposta REST[\t ]*\r?$'
+        )
+        DeclarationPattern = '(?ms)(?<body>/\*/\{Protheus\.doc\} HloAdv.*?)^[\t ]*WSMETHOD[\t ]+GET[\t ]+Hello[\t ]+WSSERVICE[\t ]+HloAdv[\t ]*\r?$'
+        Patterns = @(
+            '(?m)^[\t ]*#include[\t ]+"totvs\.ch"[\t ]*\r?$',
+            '(?m)^[\t ]*#include[\t ]+"restful\.ch"[\t ]*\r?$',
+            '(?m)^[\t ]*WSRESTFUL[\t ]+HloAdv[\t ]+DESCRIPTION[\t ]+"Hello World AdvPL"[\t ]+FORMAT[\t ]+APPLICATION_JSON[\t ]*\r?$',
+            '(?m)^[\t ]*WSMETHOD[\t ]+GET[\t ]+Hello[\t ]*;[\t ]*\r?$',
+            '(?m)^[\t ]*DESCRIPTION[\t ]+"Retorna uma mensagem Hello World gerada por um endpoint AdvPL\."[\t ]*;[\t ]*\r?$',
+            '(?m)^[\t ]*WSSYNTAX[\t ]+"/api/v1/hello-advpl"[\t ]*;[\t ]*\r?$',
+            '(?m)^[\t ]*PATH[\t ]+"/api/v1/hello-advpl"[\t ]*;[\t ]*\r?$',
+            '(?m)^[\t ]*PRODUCES[\t ]+APPLICATION_JSON[\t ]*\r?$',
+            '(?m)^[\t ]*END[\t ]+WSRESTFUL[\t ]*\r?$',
+            '(?m)^[\t ]*WSMETHOD[\t ]+GET[\t ]+Hello[\t ]+WSSERVICE[\t ]+HloAdv[\t ]*\r?$',
+            '(?m)^[\t ]*Local[\t ]+lRet[\t ]*:=[\t ]*\.T\.[\t ]*\r?$',
+            '(?m)^[\t ]*Local[\t ]+jResp[\t ]*:=[\t ]*JsonObject[\t ]*\([\t ]*\)[\t ]*:[\t ]*New[\t ]*\([\t ]*\)[\t ]*\r?$',
+            '(?m)^[\t ]*Local[\t ]+cResp[\t ]*:=[\t ]*""[\t ]*\r?$',
+            '(?m)^[\t ]*jResp[\t ]*\[[\t ]*"message"[\t ]*\][\t ]*:=[\t ]*"Hello World"[\t ]*\r?$',
+            '(?m)^[\t ]*jResp[\t ]*\[[\t ]*"language"[\t ]*\][\t ]*:=[\t ]*"AdvPL"[\t ]*\r?$',
+            '(?m)^[\t ]*jResp[\t ]*\[[\t ]*"status"[\t ]*\][\t ]*:=[\t ]*"success"[\t ]*\r?$',
+            '(?m)^[\t ]*cResp[\t ]*:=[\t ]*jResp[\t ]*:[\t ]*ToJson[\t ]*\([\t ]*\)[\t ]*\r?$',
+            '(?m)^[\t ]*Self[\t ]*:[\t ]*SetContentType[\t ]*\([\t ]*"application/json"[\t ]*\)[\t ]*\r?$',
+            '(?m)^[\t ]*Self[\t ]*:[\t ]*SetResponse[\t ]*\([\t ]*cResp[\t ]*\)[\t ]*\r?$',
+            '(?m)^[\t ]*Return[\t ]+lRet[\t ]*\r?$'
+        )
+        Responses = @()
     }
 }
 
