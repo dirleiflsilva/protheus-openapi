@@ -50,9 +50,9 @@ A prova de conceito TL++ confirmou a publicação REST e a geração nativa de O
 | Requisito | Prioridade | Fase | Estado |
 | --- | --- | --- | --- |
 | ADVH-01 | P1 | Implementação | Verificado |
-| ADVH-02 | P1 | Runtime | Pendente |
-| ADVH-03 | P1 | Runtime | Pendente |
-| ADVH-04 | P1 | Runtime | Pendente |
+| ADVH-02 | P1 | Runtime | Verificado |
+| ADVH-03 | P1 | Runtime | Verificado |
+| ADVH-04 | P1 | Runtime | Verificado |
 | ADVH-05 | P1 | Runtime | Pendente |
 | ADVH-06 | P1 | Análise | Pendente |
 | ADVH-07 | P1 | Documentação | Pendente |
@@ -62,6 +62,6 @@ A prova de conceito TL++ confirmou a publicação REST e a geração nativa de O
 
 - [x] Fonte AdvPL em Windows-1252 sem BOM e com ProtheusDOC.
 - [x] Contrato estático e compilação aprovados.
-- [ ] Comportamento HTTP comprovado no ambiente `P12_2510`.
+- [x] Comportamento HTTP comprovado no ambiente `P12_2510`.
 - [ ] Path AdvPL localizado no documento nativo.
 - [ ] Matriz comparativa publicada sem incluir o YAML bruto do ambiente.

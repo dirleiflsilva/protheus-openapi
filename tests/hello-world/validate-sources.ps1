@@ -80,26 +80,26 @@ $contracts = @{
     advpl = @{
         Path = Join-Path $repoRoot "examples\hello-world\hello-api-advpl.prw"
         DocumentationPatterns = @(
-            '(?m)^/\*/\{Protheus\.doc\} HloAdv[\t ]*\r?$',
+            '(?m)^/\*/\{Protheus\.doc\} api[\t ]*\r?$',
             '(?m)^[\t ]*@type[\t ]+wsrestful[\t ]*\r?$',
-            '(?m)^/\*/\{Protheus\.doc\} HloAdv::Hello[\t ]*\r?$',
+            '(?m)^/\*/\{Protheus\.doc\} api::Hello[\t ]*\r?$',
             '(?m)^[\t ]*@type[\t ]+method[\t ]*\r?$',
             '(?m)^[\t ]*@author[\t ]+Dirlei Silva[\t ]*\r?$',
             '(?m)^[\t ]*@since[\t ]+2026-08-21[\t ]*\r?$',
             '(?m)^[\t ]*@return[\t ]+logical,[\t ]+Resultado do envio da resposta REST[\t ]*\r?$'
         )
-        DeclarationPattern = '(?ms)(?<body>/\*/\{Protheus\.doc\} HloAdv.*?)^[\t ]*WSMETHOD[\t ]+GET[\t ]+Hello[\t ]+WSSERVICE[\t ]+HloAdv[\t ]*\r?$'
+        DeclarationPattern = '(?ms)(?<body>/\*/\{Protheus\.doc\} api.*?)^[\t ]*WSMETHOD[\t ]+GET[\t ]+Hello[\t ]+WSSERVICE[\t ]+api[\t ]*\r?$'
         Patterns = @(
             '(?m)^[\t ]*#include[\t ]+"totvs\.ch"[\t ]*\r?$',
             '(?m)^[\t ]*#include[\t ]+"restful\.ch"[\t ]*\r?$',
-            '(?m)^[\t ]*WSRESTFUL[\t ]+HloAdv[\t ]+DESCRIPTION[\t ]+"Hello World AdvPL"[\t ]+FORMAT[\t ]+APPLICATION_JSON[\t ]*\r?$',
+            '(?m)^[\t ]*WSRESTFUL[\t ]+api[\t ]+DESCRIPTION[\t ]+"Hello World AdvPL"[\t ]+FORMAT[\t ]+APPLICATION_JSON[\t ]*\r?$',
             '(?m)^[\t ]*WSMETHOD[\t ]+GET[\t ]+Hello[\t ]*;[\t ]*\r?$',
             '(?m)^[\t ]*DESCRIPTION[\t ]+"Retorna uma mensagem Hello World gerada por um endpoint AdvPL\."[\t ]*;[\t ]*\r?$',
-            '(?m)^[\t ]*WSSYNTAX[\t ]+"/api/v1/hello-advpl"[\t ]*;[\t ]*\r?$',
-            '(?m)^[\t ]*PATH[\t ]+"/api/v1/hello-advpl"[\t ]*;[\t ]*\r?$',
+            '(?m)^[\t ]*WSSYNTAX[\t ]+"/v1/hello-advpl"[\t ]*;[\t ]*\r?$',
+            '(?m)^[\t ]*PATH[\t ]+"/v1/hello-advpl"[\t ]*;[\t ]*\r?$',
             '(?m)^[\t ]*PRODUCES[\t ]+APPLICATION_JSON[\t ]*\r?$',
             '(?m)^[\t ]*END[\t ]+WSRESTFUL[\t ]*\r?$',
-            '(?m)^[\t ]*WSMETHOD[\t ]+GET[\t ]+Hello[\t ]+WSSERVICE[\t ]+HloAdv[\t ]*\r?$',
+            '(?m)^[\t ]*WSMETHOD[\t ]+GET[\t ]+Hello[\t ]+WSSERVICE[\t ]+api[\t ]*\r?$',
             '(?m)^[\t ]*Local[\t ]+lRet[\t ]*:=[\t ]*\.T\.[\t ]*\r?$',
             '(?m)^[\t ]*Local[\t ]+jResp[\t ]*:=[\t ]*JsonObject[\t ]*\([\t ]*\)[\t ]*:[\t ]*New[\t ]*\([\t ]*\)[\t ]*\r?$',
             '(?m)^[\t ]*Local[\t ]+cResp[\t ]*:=[\t ]*""[\t ]*\r?$',
