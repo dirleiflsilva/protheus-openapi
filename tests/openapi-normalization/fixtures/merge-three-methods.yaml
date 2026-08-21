@@ -1,0 +1,23 @@
+openapi: 3.0.3
+info:
+  title: Três métodos
+  version: 1.0.0
+paths:
+  /api/orders:
+    get:
+      responses:
+        '200':
+          description: Consulta concluída
+  /api/orders:
+    post:
+      responses:
+        '201':
+          description: Inclusão concluída
+  /api/orders:
+    delete:
+      responses:
+        '204':
+          description: Exclusão concluída
+components:
+  schemas: {}
+

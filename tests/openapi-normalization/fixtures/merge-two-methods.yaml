@@ -1,0 +1,18 @@
+openapi: 3.0.3
+info:
+  title: Dois métodos
+  version: 1.0.0
+paths:
+  /api/items/{id}:
+    get:
+      responses:
+        '200':
+          description: Consulta concluída
+  /api/items/{id}:
+    put:
+      responses:
+        '200':
+          description: Alteração concluída
+components:
+  schemas: {}
+

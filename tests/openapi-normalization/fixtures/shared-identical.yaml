@@ -1,0 +1,26 @@
+openapi: 3.0.3
+info:
+  title: Campo compartilhado
+  version: 1.0.0
+paths:
+  /api/customers/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+    get:
+      responses:
+        '200':
+          description: Consulta concluída
+  /api/customers/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+    patch:
+      responses:
+        '200':
+          description: Alteração concluída
+components:
+  schemas: {}
+

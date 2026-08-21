@@ -2,7 +2,7 @@
 
 **Design:** `docs/plans/2026-08-21-openapi-path-normalization-design.md`  
 **Plano:** `docs/plans/2026-08-21-openapi-path-normalization.md`  
-**Estado:** aprovado
+**Estado:** em execução (T1 concluída)
 
 ## Plano de execução
 
@@ -23,12 +23,12 @@ As tarefas são sequenciais porque todas evoluem o mesmo script e o mesmo execut
 
 **Concluída quando:**
 
-- [ ] testes RED falham porque o normalizador ainda não existe;
-- [ ] path único permanece semanticamente igual;
-- [ ] duas e três ocorrências compatíveis viram um path com todos os verbos;
-- [ ] campo compartilhado idêntico é emitido uma vez;
-- [ ] seções fora de `paths` são preservadas;
-- [ ] gate passa com `powershell -NoProfile -ExecutionPolicy Bypass -File tests/openapi-normalization/run-tests.ps1`.
+- [x] testes RED falham porque o normalizador ainda não existe;
+- [x] path único permanece semanticamente igual;
+- [x] duas e três ocorrências compatíveis viram um path com todos os verbos;
+- [x] campo compartilhado idêntico é emitido uma vez;
+- [x] seções fora de `paths` são preservadas;
+- [x] gate passa com `powershell -NoProfile -ExecutionPolicy Bypass -File tests/openapi-normalization/run-tests.ps1`.
 
 **Commit:** `feat(openapi): consolida operações de paths duplicados`
 
@@ -102,4 +102,3 @@ As tarefas são sequenciais porque todas evoluem o mesmo script e o mesmo execut
 - **Dependências:** o diagrama `T1 -> T2 -> T3 -> T4` corresponde aos campos `Depende de`.
 - **Testes co-localizados:** T1, T2 e T3 incluem seus próprios testes PowerShell; T4 executa a suíte completa e a validação operacional.
 - **Paralelismo:** não recomendado devido ao compartilhamento dos mesmos arquivos.
-
