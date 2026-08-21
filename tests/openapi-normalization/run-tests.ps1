@@ -57,6 +57,32 @@ function Invoke-Normalizer {
     & $normalizer -InputPath (Join-Path $fixtures $Fixture) -OutputPath $Output | Out-Null
 }
 
+function Invoke-NormalizerFailure {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Fixture,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Output
+    )
+
+    $powershell = Join-Path $PSHOME "powershell.exe"
+    $input = Join-Path $fixtures $Fixture
+    $previousPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = "Continue"
+        $message = & $powershell -NoProfile -ExecutionPolicy Bypass -File $normalizer -InputPath $input -OutputPath $Output 2>&1 | Out-String
+        $exitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previousPreference
+    }
+
+    return [PSCustomObject]@{
+        ExitCode = $exitCode
+        Message = $message
+    }
+}
+
 function Invoke-Test {
     param(
         [Parameter(Mandatory = $true)]
@@ -121,6 +147,55 @@ try {
         Assert-MatchCount -Content $content -Pattern '(?m)^    parameters:$' -Expected 1 -Message "Campo compartilhado não foi deduplicado."
         Assert-MatchCount -Content $content -Pattern '(?m)^    get:$' -Expected 1 -Message "Operação GET ausente."
         Assert-MatchCount -Content $content -Pattern '(?m)^    patch:$' -Expected 1 -Message "Operação PATCH ausente."
+    }
+
+    Invoke-Test -Name "rejeita o mesmo verbo repetido" -Body {
+        $output = Join-Path $tempRoot "duplicate-method.yaml"
+        $result = Invoke-NormalizerFailure -Fixture "duplicate-method.yaml" -Output $output
+
+        Assert-True -Condition ($result.ExitCode -ne 0) -Message "Verbo repetido foi aceito."
+        Assert-True -Condition $result.Message.Contains("/api/items/{id}") -Message "Diagnóstico não informa o path."
+        Assert-True -Condition $result.Message.Contains("get") -Message "Diagnóstico não informa o verbo."
+        Assert-True -Condition ($result.Message.Contains("7") -and $result.Message.Contains("12")) -Message "Diagnóstico não informa as linhas do verbo."
+        Assert-True -Condition (-not (Test-Path -LiteralPath $output)) -Message "Falha deixou arquivo de saída."
+    }
+
+    Invoke-Test -Name "rejeita campo compartilhado incompatível" -Body {
+        $output = Join-Path $tempRoot "shared-conflict.yaml"
+        $result = Invoke-NormalizerFailure -Fixture "shared-conflict.yaml" -Output $output
+
+        Assert-True -Condition ($result.ExitCode -ne 0) -Message "Campo compartilhado conflitante foi aceito."
+        Assert-True -Condition $result.Message.Contains("/api/customers/{id}") -Message "Diagnóstico não informa o path."
+        Assert-True -Condition $result.Message.Contains("parameters") -Message "Diagnóstico não informa o campo."
+        Assert-True -Condition ($result.Message.Contains("7") -and $result.Message.Contains("14")) -Message "Diagnóstico não informa as linhas do campo."
+        Assert-True -Condition (-not (Test-Path -LiteralPath $output)) -Message "Falha deixou arquivo de saída."
+    }
+
+    Invoke-Test -Name "rejeita ausência da seção paths" -Body {
+        $output = Join-Path $tempRoot "without-paths.yaml"
+        $result = Invoke-NormalizerFailure -Fixture "without-paths.yaml" -Output $output
+
+        Assert-True -Condition ($result.ExitCode -ne 0) -Message "Documento sem paths foi aceito."
+        Assert-True -Condition $result.Message.Contains("exatamente uma seção raiz paths") -Message "Diagnóstico inesperado para ausência de paths."
+        Assert-True -Condition (-not (Test-Path -LiteralPath $output)) -Message "Falha deixou arquivo de saída."
+    }
+
+    Invoke-Test -Name "rejeita duas seções raiz paths" -Body {
+        $output = Join-Path $tempRoot "duplicate-root-paths.yaml"
+        $result = Invoke-NormalizerFailure -Fixture "duplicate-root-paths.yaml" -Output $output
+
+        Assert-True -Condition ($result.ExitCode -ne 0) -Message "Documento com duas seções paths foi aceito."
+        Assert-True -Condition $result.Message.Contains("Encontrado: 2") -Message "Diagnóstico não informa duas seções paths."
+        Assert-True -Condition (-not (Test-Path -LiteralPath $output)) -Message "Falha deixou arquivo de saída."
+    }
+
+    Invoke-Test -Name "rejeita tabulação na estrutura" -Body {
+        $output = Join-Path $tempRoot "tab-indentation.yaml"
+        $result = Invoke-NormalizerFailure -Fixture "tab-indentation.yaml" -Output $output
+
+        Assert-True -Condition ($result.ExitCode -ne 0) -Message "Tabulação foi aceita."
+        Assert-True -Condition ($result.Message.Contains("tabulação") -and $result.Message.Contains("linha 7")) -Message "Diagnóstico não informa a linha com tabulação."
+        Assert-True -Condition (-not (Test-Path -LiteralPath $output)) -Message "Falha deixou arquivo de saída."
     }
 } finally {
     if (Test-Path -LiteralPath $tempRoot -PathType Container) {

@@ -2,7 +2,7 @@
 
 **Design:** `docs/plans/2026-08-21-openapi-path-normalization-design.md`  
 **Plano:** `docs/plans/2026-08-21-openapi-path-normalization.md`  
-**Estado:** em execução (T1 concluída)
+**Estado:** em execução (T1 e T2 concluídas)
 
 ## Plano de execução
 
@@ -43,12 +43,12 @@ As tarefas são sequenciais porque todas evoluem o mesmo script e o mesmo execut
 
 **Concluída quando:**
 
-- [ ] o mesmo verbo é rejeitado com path, verbo e linhas;
-- [ ] campo compartilhado incompatível é rejeitado com campo, path e linhas;
-- [ ] ausência ou repetição da seção raiz `paths` é rejeitada;
-- [ ] tabulação na estrutura analisada é rejeitada;
-- [ ] toda falha retorna código diferente de zero e não deixa destino parcial;
-- [ ] gate completo permanece verde.
+- [x] o mesmo verbo é rejeitado com path, verbo e linhas;
+- [x] campo compartilhado incompatível é rejeitado com campo, path e linhas;
+- [x] ausência ou repetição da seção raiz `paths` é rejeitada;
+- [x] tabulação na estrutura analisada é rejeitada;
+- [x] toda falha retorna código diferente de zero e não deixa destino parcial;
+- [x] gate completo permanece verde.
 
 **Commit:** `feat(openapi): rejeita conflitos na normalização`
 

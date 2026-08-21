@@ -1,0 +1,9 @@
+openapi: 3.0.3
+info:
+  title: Tabulação inválida
+  version: 1.0.0
+paths:
+  /api/items:
+	get:
+      responses: {}
+

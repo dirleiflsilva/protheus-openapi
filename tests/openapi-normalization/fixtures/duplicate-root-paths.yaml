@@ -1,0 +1,13 @@
+openapi: 3.0.3
+info:
+  title: Duas seções paths
+  version: 1.0.0
+paths:
+  /api/first:
+    get:
+      responses: {}
+paths:
+  /api/second:
+    get:
+      responses: {}
+

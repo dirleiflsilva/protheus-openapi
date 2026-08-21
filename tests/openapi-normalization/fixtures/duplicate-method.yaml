@@ -1,0 +1,16 @@
+openapi: 3.0.3
+info:
+  title: Verbo repetido
+  version: 1.0.0
+paths:
+  /api/items/{id}:
+    get:
+      responses:
+        '200':
+          description: Primeira consulta
+  /api/items/{id}:
+    get:
+      responses:
+        '200':
+          description: Segunda consulta
+

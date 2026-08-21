@@ -156,17 +156,30 @@ function Join-CompatiblePathBlocks {
         }
     }
 
-    $seen = [System.Collections.Generic.Dictionary[string, string]]::new([StringComparer]::Ordinal)
+    $methods = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    foreach ($method in @("get", "put", "post", "delete", "options", "head", "patch", "trace")) {
+        $null = $methods.Add($method)
+    }
+
+    $seen = [System.Collections.Generic.Dictionary[string, object]]::new([StringComparer]::Ordinal)
     foreach ($block in $Blocks) {
         foreach ($child in $block.Children) {
             $signature = $child.Lines -join "`n"
-            if ($seen.ContainsKey($child.Key) -and $seen[$child.Key] -ceq $signature) {
-                continue
+            if ($seen.ContainsKey($child.Key)) {
+                $previous = $seen[$child.Key]
+                if ($methods.Contains($child.Key)) {
+                    throw "O path '$($Blocks[0].Key)' repete o verbo '$($child.Key)' nas linhas $($previous.Line) e $($child.Line)."
+                }
+                if ($previous.Signature -ceq $signature) {
+                    continue
+                }
+                throw "O path '$($Blocks[0].Key)' contém o campo compartilhado '$($child.Key)' incompatível nas linhas $($previous.Line) e $($child.Line)."
             }
 
-            if (-not $seen.ContainsKey($child.Key)) {
-                $seen.Add($child.Key, $signature)
-            }
+            $seen.Add($child.Key, [PSCustomObject]@{
+                Line = $child.Line
+                Signature = $signature
+            })
             foreach ($line in $child.Lines) {
                 $result.Add($line)
             }
@@ -192,6 +205,12 @@ if ($content.Contains("`r`n")) {
     $newLine = "`r`n"
 }
 $script:documentLines = [string[]]($content -split "`r?`n")
+
+for ($index = 0; $index -lt $script:documentLines.Count; $index++) {
+    if ($script:documentLines[$index].Contains("`t")) {
+        throw "O YAML contém tabulação na linha $($index + 1); use somente espaços para indentação."
+    }
+}
 
 $rootEntries = @()
 for ($index = 0; $index -lt $script:documentLines.Count; $index++) {

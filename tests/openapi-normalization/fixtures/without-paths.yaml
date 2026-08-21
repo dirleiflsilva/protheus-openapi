@@ -1,0 +1,7 @@
+openapi: 3.0.3
+info:
+  title: Sem paths
+  version: 1.0.0
+components:
+  schemas: {}
+
