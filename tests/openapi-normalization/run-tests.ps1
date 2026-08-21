@@ -57,6 +57,43 @@ function Invoke-Normalizer {
     & $normalizer -InputPath (Join-Path $fixtures $Fixture) -OutputPath $Output | Out-Null
 }
 
+function Invoke-NormalizerProcess {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$InputFile,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Output,
+
+        [switch]$Force
+    )
+
+    $powershell = Join-Path $PSHOME "powershell.exe"
+    $arguments = @(
+        "-NoProfile",
+        "-ExecutionPolicy", "Bypass",
+        "-File", $normalizer,
+        "-InputPath", $InputFile,
+        "-OutputPath", $Output
+    )
+    if ($Force) {
+        $arguments += "-Force"
+    }
+    $previousPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = "Continue"
+        $message = & $powershell @arguments 2>&1 | Out-String
+        $exitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previousPreference
+    }
+
+    return [PSCustomObject]@{
+        ExitCode = $exitCode
+        Message = $message
+    }
+}
+
 function Invoke-NormalizerFailure {
     param(
         [Parameter(Mandatory = $true)]
@@ -66,20 +103,27 @@ function Invoke-NormalizerFailure {
         [string]$Output
     )
 
-    $powershell = Join-Path $PSHOME "powershell.exe"
-    $input = Join-Path $fixtures $Fixture
-    $previousPreference = $ErrorActionPreference
-    try {
-        $ErrorActionPreference = "Continue"
-        $message = & $powershell -NoProfile -ExecutionPolicy Bypass -File $normalizer -InputPath $input -OutputPath $Output 2>&1 | Out-String
-        $exitCode = $LASTEXITCODE
-    } finally {
-        $ErrorActionPreference = $previousPreference
-    }
+    return Invoke-NormalizerProcess -InputFile (Join-Path $fixtures $Fixture) -Output $Output
+}
 
-    return [PSCustomObject]@{
-        ExitCode = $exitCode
-        Message = $message
+function Assert-Utf8WithoutBom {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    $bytes = [IO.File]::ReadAllBytes($Path)
+    $hasBom = $bytes.Length -ge 3 -and
+        $bytes[0] -eq 0xEF -and
+        $bytes[1] -eq 0xBB -and
+        $bytes[2] -eq 0xBF
+    Assert-True -Condition (-not $hasBom) -Message "A saída contém BOM."
+
+    $utf8Strict = [Text.UTF8Encoding]::new($false, $true)
+    try {
+        $null = $utf8Strict.GetString($bytes)
+    } catch {
+        throw "A saída não é UTF-8 válida."
     }
 }
 
@@ -196,6 +240,99 @@ try {
         Assert-True -Condition ($result.ExitCode -ne 0) -Message "Tabulação foi aceita."
         Assert-True -Condition ($result.Message.Contains("tabulação") -and $result.Message.Contains("linha 7")) -Message "Diagnóstico não informa a linha com tabulação."
         Assert-True -Condition (-not (Test-Path -LiteralPath $output)) -Message "Falha deixou arquivo de saída."
+    }
+
+    $cedilla = [char]0x00E7
+    $tildeA = [char]0x00E3
+    $acuteI = [char]0x00ED
+    $expectedTitle = "Descri${cedilla}${tildeA}o da a${cedilla}${tildeA}o"
+    $expectedDescription = "A${cedilla}${tildeA}o conclu${acuteI}da"
+    $encodingSample = @"
+openapi: 3.0.3
+info:
+  title: $expectedTitle
+  version: 1.0.0
+paths:
+  /api/encoding:
+    get:
+      description: $expectedDescription
+"@
+
+    Invoke-Test -Name "aceita UTF-8 com e sem BOM" -Body {
+        $utf8NoBomInput = Join-Path $tempRoot "utf8-no-bom-input.yaml"
+        $utf8BomInput = Join-Path $tempRoot "utf8-bom-input.yaml"
+        $utf8NoBomOutput = Join-Path $tempRoot "utf8-no-bom-output.yaml"
+        $utf8BomOutput = Join-Path $tempRoot "utf8-bom-output.yaml"
+        [IO.File]::WriteAllText($utf8NoBomInput, $encodingSample, [Text.UTF8Encoding]::new($false))
+        [IO.File]::WriteAllText($utf8BomInput, $encodingSample, [Text.UTF8Encoding]::new($true))
+
+        $first = Invoke-NormalizerProcess -InputFile $utf8NoBomInput -Output $utf8NoBomOutput
+        $second = Invoke-NormalizerProcess -InputFile $utf8BomInput -Output $utf8BomOutput
+
+        Assert-True -Condition ($first.ExitCode -eq 0 -and $second.ExitCode -eq 0) -Message "Entrada UTF-8 foi rejeitada."
+        Assert-True -Condition (Get-Content -LiteralPath $utf8NoBomOutput -Raw -Encoding UTF8).Contains($expectedTitle) -Message "Acentos do UTF-8 sem BOM foram alterados."
+        Assert-True -Condition (Get-Content -LiteralPath $utf8BomOutput -Raw -Encoding UTF8).Contains($expectedDescription) -Message "Acentos do UTF-8 com BOM foram alterados."
+    }
+
+    Invoke-Test -Name "aceita CP1252 e publica UTF-8 sem BOM" -Body {
+        $input = Join-Path $tempRoot "cp1252-input.yaml"
+        $output = Join-Path $tempRoot "cp1252-output.yaml"
+        [IO.File]::WriteAllText($input, $encodingSample, [Text.Encoding]::GetEncoding(1252))
+
+        $result = Invoke-NormalizerProcess -InputFile $input -Output $output
+        $content = Get-Content -LiteralPath $output -Raw -Encoding UTF8
+
+        Assert-True -Condition ($result.ExitCode -eq 0) -Message "Entrada CP1252 foi rejeitada."
+        Assert-True -Condition $content.Contains($expectedTitle) -Message "Acentos do CP1252 não foram preservados."
+        Assert-True -Condition $content.Contains($expectedDescription) -Message "Conteúdo CP1252 foi corrompido."
+        Assert-Utf8WithoutBom -Path $output
+    }
+
+    Invoke-Test -Name "rejeita entrada e saída iguais" -Body {
+        $input = Join-Path $tempRoot "same-path.yaml"
+        Copy-Item -LiteralPath (Join-Path $fixtures "unique-path.yaml") -Destination $input
+        $before = (Get-FileHash -Algorithm SHA256 -LiteralPath $input).Hash
+
+        $result = Invoke-NormalizerProcess -InputFile $input -Output $input
+
+        Assert-True -Condition ($result.ExitCode -ne 0) -Message "Entrada e saída iguais foram aceitas."
+        Assert-True -Condition $result.Message.Contains("caminhos de entrada e saída") -Message "Diagnóstico inesperado para caminhos iguais."
+        Assert-True -Condition ((Get-FileHash -Algorithm SHA256 -LiteralPath $input).Hash -ceq $before) -Message "Arquivo de entrada foi alterado."
+    }
+
+    Invoke-Test -Name "protege destino existente sem Force" -Body {
+        $output = Join-Path $tempRoot "existing.yaml"
+        [IO.File]::WriteAllText($output, "conteúdo original", [Text.UTF8Encoding]::new($false))
+
+        $result = Invoke-NormalizerProcess -InputFile (Join-Path $fixtures "unique-path.yaml") -Output $output
+
+        Assert-True -Condition ($result.ExitCode -ne 0) -Message "Destino existente foi substituído sem Force."
+        Assert-True -Condition $result.Message.Contains("Use -Force") -Message "Diagnóstico inesperado para destino existente."
+        Assert-True -Condition ((Get-Content -LiteralPath $output -Raw -Encoding UTF8) -ceq "conteúdo original") -Message "Destino existente foi alterado."
+    }
+
+    Invoke-Test -Name "substitui destino atomicamente com Force" -Body {
+        $output = Join-Path $tempRoot "forced.yaml"
+        [IO.File]::WriteAllText($output, "conteúdo original", [Text.UTF8Encoding]::new($false))
+
+        $result = Invoke-NormalizerProcess -InputFile (Join-Path $fixtures "unique-path.yaml") -Output $output -Force
+        $content = Get-Content -LiteralPath $output -Raw -Encoding UTF8
+
+        Assert-True -Condition ($result.ExitCode -eq 0) -Message "Substituição com Force falhou."
+        Assert-True -Condition $content.Contains("/api/items:") -Message "Destino não recebeu o YAML normalizado."
+        Assert-Utf8WithoutBom -Path $output
+    }
+
+    Invoke-Test -Name "emite resumo e remove temporários" -Body {
+        $output = Join-Path $tempRoot "summary.yaml"
+        $result = Invoke-NormalizerProcess -InputFile (Join-Path $fixtures "merge-three-methods.yaml") -Output $output
+
+        Assert-True -Condition ($result.ExitCode -eq 0) -Message "Normalização para resumo falhou."
+        foreach ($label in @("Declarações", "Paths únicos", "Grupos consolidados", "Operações incorporadas")) {
+            Assert-True -Condition $result.Message.Contains($label) -Message "Resumo não contém '$label'."
+        }
+        $temporaryFiles = @(Get-ChildItem -LiteralPath $tempRoot -File | Where-Object { $_.Name -match '^\..*\.(tmp|bak)$' })
+        Assert-True -Condition ($temporaryFiles.Count -eq 0) -Message "Arquivos temporários permaneceram após sucesso."
     }
 } finally {
     if (Test-Path -LiteralPath $tempRoot -PathType Container) {

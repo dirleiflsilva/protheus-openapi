@@ -2,7 +2,7 @@
 
 **Design:** `docs/plans/2026-08-21-openapi-path-normalization-design.md`  
 **Plano:** `docs/plans/2026-08-21-openapi-path-normalization.md`  
-**Estado:** em execução (T1 e T2 concluídas)
+**Estado:** em execução (T1, T2 e T3 concluídas)
 
 ## Plano de execução
 
@@ -63,14 +63,14 @@ As tarefas são sequenciais porque todas evoluem o mesmo script e o mesmo execut
 
 **Concluída quando:**
 
-- [ ] entradas UTF-8 e CP1252 preservam caracteres acentuados;
-- [ ] entrada e saída iguais são rejeitadas;
-- [ ] destino existente exige `-Force`;
-- [ ] substituição válida é atômica;
-- [ ] saída não contém BOM e é UTF-8 estrito;
-- [ ] resumo contém os quatro contadores definidos;
-- [ ] nenhum temporário permanece após sucesso ou falha;
-- [ ] gate completo permanece verde.
+- [x] entradas UTF-8 e CP1252 preservam caracteres acentuados;
+- [x] entrada e saída iguais são rejeitadas;
+- [x] destino existente exige `-Force`;
+- [x] substituição válida é atômica;
+- [x] saída não contém BOM e é UTF-8 estrito;
+- [x] resumo contém os quatro contadores definidos;
+- [x] nenhum temporário permanece após sucesso ou falha;
+- [x] gate completo permanece verde.
 
 **Commit:** `feat(openapi): protege saída do normalizador`
 

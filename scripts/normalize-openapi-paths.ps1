@@ -10,6 +10,38 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+function Read-OpenApiText {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    $bytes = [IO.File]::ReadAllBytes($Path)
+    $offset = 0
+    if ($bytes.Length -ge 3 -and
+        $bytes[0] -eq 0xEF -and
+        $bytes[1] -eq 0xBB -and
+        $bytes[2] -eq 0xBF) {
+        $offset = 3
+    }
+
+    $utf8Strict = [Text.UTF8Encoding]::new($false, $true)
+    try {
+        return $utf8Strict.GetString($bytes, $offset, $bytes.Length - $offset)
+    } catch [Text.DecoderFallbackException] {
+        return [Text.Encoding]::GetEncoding(1252).GetString($bytes)
+    }
+}
+
+function Test-HttpMethod {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Name
+    )
+
+    return $Name -cin @("get", "put", "post", "delete", "options", "head", "patch", "trace")
+}
+
 function ConvertFrom-YamlKey {
     param(
         [Parameter(Mandatory = $true)]
@@ -156,18 +188,15 @@ function Join-CompatiblePathBlocks {
         }
     }
 
-    $methods = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
-    foreach ($method in @("get", "put", "post", "delete", "options", "head", "patch", "trace")) {
-        $null = $methods.Add($method)
-    }
-
     $seen = [System.Collections.Generic.Dictionary[string, object]]::new([StringComparer]::Ordinal)
-    foreach ($block in $Blocks) {
+    $operationsAdded = 0
+    for ($blockIndex = 0; $blockIndex -lt $Blocks.Count; $blockIndex++) {
+        $block = $Blocks[$blockIndex]
         foreach ($child in $block.Children) {
             $signature = $child.Lines -join "`n"
             if ($seen.ContainsKey($child.Key)) {
                 $previous = $seen[$child.Key]
-                if ($methods.Contains($child.Key)) {
+                if (Test-HttpMethod -Name $child.Key) {
                     throw "O path '$($Blocks[0].Key)' repete o verbo '$($child.Key)' nas linhas $($previous.Line) e $($child.Line)."
                 }
                 if ($previous.Signature -ceq $signature) {
@@ -180,13 +209,19 @@ function Join-CompatiblePathBlocks {
                 Line = $child.Line
                 Signature = $signature
             })
+            if ($blockIndex -gt 0 -and (Test-HttpMethod -Name $child.Key)) {
+                $operationsAdded++
+            }
             foreach ($line in $child.Lines) {
                 $result.Add($line)
             }
         }
     }
 
-    return [string[]]$result
+    return [PSCustomObject]@{
+        Lines = [string[]]$result
+        OperationsAdded = $operationsAdded
+    }
 }
 
 if (-not (Test-Path -LiteralPath $InputPath -PathType Leaf)) {
@@ -195,7 +230,14 @@ if (-not (Test-Path -LiteralPath $InputPath -PathType Leaf)) {
 
 $inputFullPath = (Resolve-Path -LiteralPath $InputPath).Path
 $outputFullPath = [IO.Path]::GetFullPath($OutputPath)
-$content = Get-Content -LiteralPath $inputFullPath -Raw -Encoding UTF8
+if ([string]::Equals($inputFullPath, $outputFullPath, [StringComparison]::OrdinalIgnoreCase)) {
+    throw "Os caminhos de entrada e saída devem ser diferentes."
+}
+if ((Test-Path -LiteralPath $outputFullPath -PathType Leaf) -and -not $Force) {
+    throw "O arquivo de saída já existe. Use -Force para permitir a substituição: $outputFullPath"
+}
+
+$content = Read-OpenApiText -Path $inputFullPath
 if ([string]::IsNullOrWhiteSpace($content)) {
     throw "O arquivo OpenAPI está vazio: $inputFullPath"
 }
@@ -248,6 +290,8 @@ if ($pathBlocks.Count -gt 0 -and $pathBlocks[0].Start -gt $pathsStart + 1) {
 }
 
 $processed = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+$groupsMerged = 0
+$operationsAdded = 0
 foreach ($pathBlock in $pathBlocks) {
     if (-not $processed.Add($pathBlock.Key)) {
         continue
@@ -261,7 +305,10 @@ foreach ($pathBlock in $pathBlocks) {
         continue
     }
 
-    foreach ($line in (Join-CompatiblePathBlocks -Blocks $matches)) {
+    $groupsMerged++
+    $merged = Join-CompatiblePathBlocks -Blocks $matches
+    $operationsAdded += $merged.OperationsAdded
+    foreach ($line in $merged.Lines) {
         $outputLines.Add($line)
     }
 }
@@ -273,5 +320,28 @@ if ($pathsEnd + 1 -lt $script:documentLines.Count) {
 }
 
 $outputContent = $outputLines -join $newLine
+$outputDirectory = Split-Path -Parent $outputFullPath
+if (-not (Test-Path -LiteralPath $outputDirectory -PathType Container)) {
+    [IO.Directory]::CreateDirectory($outputDirectory) | Out-Null
+}
+
+$temporaryPath = Join-Path $outputDirectory (".{0}.{1}.tmp" -f ([IO.Path]::GetFileName($outputFullPath)), [guid]::NewGuid().ToString("N"))
+$backupPath = Join-Path $outputDirectory (".{0}.{1}.bak" -f ([IO.Path]::GetFileName($outputFullPath)), [guid]::NewGuid().ToString("N"))
 $utf8WithoutBom = [Text.UTF8Encoding]::new($false)
-[IO.File]::WriteAllText($outputFullPath, $outputContent, $utf8WithoutBom)
+try {
+    [IO.File]::WriteAllText($temporaryPath, $outputContent, $utf8WithoutBom)
+    if (Test-Path -LiteralPath $outputFullPath -PathType Leaf) {
+        [IO.File]::Replace($temporaryPath, $outputFullPath, $backupPath)
+    } else {
+        [IO.File]::Move($temporaryPath, $outputFullPath)
+    }
+} finally {
+    if (Test-Path -LiteralPath $temporaryPath -PathType Leaf) {
+        Remove-Item -LiteralPath $temporaryPath -Force
+    }
+    if (Test-Path -LiteralPath $backupPath -PathType Leaf) {
+        Remove-Item -LiteralPath $backupPath -Force
+    }
+}
+
+Write-Output ("Normalização concluída. Declarações: {0}; Paths únicos: {1}; Grupos consolidados: {2}; Operações incorporadas: {3}." -f $pathBlocks.Count, $processed.Count, $groupsMerged, $operationsAdded)
