@@ -6,10 +6,10 @@ A prova de conceito TL++ confirmou a publicação REST e a geração nativa de O
 
 ## Objetivos
 
-- [ ] Publicar um Hello World AdvPL autenticado em `GET /api/v1/hello-advpl`.
-- [ ] Retornar o mesmo contrato funcional do exemplo TL++, alterando apenas `language` para `AdvPL`.
-- [ ] Observar como `WSRESTFUL` aparece no YAML OpenAPI nativo.
-- [ ] Registrar uma matriz comparativa entre TL++ e AdvPL.
+- [x] Publicar um Hello World AdvPL autenticado em `GET /api/v1/hello-advpl`.
+- [x] Retornar o mesmo contrato funcional do exemplo TL++, alterando apenas `language` para `AdvPL`.
+- [x] Observar como `WSRESTFUL` aparece no YAML OpenAPI nativo.
+- [x] Registrar uma matriz comparativa entre TL++ e AdvPL.
 
 ## Fora do escopo
 
@@ -53,15 +53,15 @@ A prova de conceito TL++ confirmou a publicação REST e a geração nativa de O
 | ADVH-02 | P1 | Runtime | Verificado |
 | ADVH-03 | P1 | Runtime | Verificado |
 | ADVH-04 | P1 | Runtime | Verificado |
-| ADVH-05 | P1 | Runtime | Pendente |
-| ADVH-06 | P1 | Análise | Pendente |
-| ADVH-07 | P1 | Documentação | Pendente |
-| ADVH-08 | P1 | Análise | Pendente |
+| ADVH-05 | P1 | Runtime | Não atendido: path ausente no YAML nativo |
+| ADVH-06 | P1 | Análise | Verificado: ausência registrada sem inferir metadados |
+| ADVH-07 | P1 | Documentação | Verificado |
+| ADVH-08 | P1 | Análise | Verificado |
 
 ## Critérios de sucesso
 
 - [x] Fonte AdvPL em Windows-1252 sem BOM e com ProtheusDOC.
 - [x] Contrato estático e compilação aprovados.
 - [x] Comportamento HTTP comprovado no ambiente `P12_2510`.
-- [ ] Path AdvPL localizado no documento nativo.
-- [ ] Matriz comparativa publicada sem incluir o YAML bruto do ambiente.
+- [ ] Path AdvPL localizado no documento nativo — não gerado pelo TLPPCore `01.06.01`.
+- [x] Matriz comparativa publicada sem incluir o YAML bruto do ambiente.

@@ -12,7 +12,7 @@
 
 ## Objetivo
 
-Validar a publicação de um endpoint TL++ por annotation, sua documentação nativa e a exportação do documento OpenAPI em YAML.
+Validar a publicação de endpoints equivalentes em TL++ e AdvPL, comparar sua descoberta documental nativa e exportar o documento OpenAPI em YAML.
 
 ## Resultados
 
@@ -21,9 +21,14 @@ Validar a publicação de um endpoint TL++ por annotation, sua documentação na
 | Compilação dos fontes TL++ no RPO REST | concluída para os dois fontes em 2026-08-21. |
 | Execução de `GET /api/v1/hello` | HTTP `401` sem credenciais e HTTP `200` com autenticação. |
 | Corpo e cabeçalhos retornados pelo Hello World | `application/json`; corpo esperado confirmado. |
+| Compilação do fonte AdvPL no RPO REST | concluída sem erros em 2026-08-21 às 15:27:43. |
+| Execução de `GET /api/v1/hello-advpl` | HTTP `401` sem credenciais e HTTP `200` com autenticação. |
+| Corpo retornado pelo Hello World AdvPL | `{"message":"Hello World","language":"AdvPL","status":"success"}`. |
 | Exportação com `tlpp.doc.generate()` | concluída em modo `swagger`; arquivo YAML criado. |
+| Nova exportação após publicar o endpoint AdvPL | concluída em 2026-08-21 às 15:36:11; arquivo com 54.260 bytes. |
 | Versão declarada no documento | OpenAPI `3.0.3`. |
 | Path efetivamente gerado | `/api/v1/hello`, com `GET`, summary, descrição e resposta `200` esperados. |
+| Descoberta do path AdvPL | `/api/v1/hello-advpl` não foi emitido no YAML nativo. |
 | Localização do artefato bruto | `D:\TOTVS12\Protheus12_2510\protheus_data\system\hello_openapi_8084.yaml`. |
 | Validação e extração do snapshot sanitizado | fragmento Hello World válido; documento completo rejeitado por paths duplicados; extração pendente. |
 | Visualização da documentação nativa | VS Code identificou seis ocorrências de chaves YAML duplicadas em cinco paths padrão. |
@@ -40,7 +45,7 @@ As referências oficiais do TLPPCore usam o formato `swagger` para produzir o do
 tlpp.doc.generate("swagger", "hello_openapi", {8084}, {"pt-br"})
 ```
 
-A correção foi recompilada e executada. O arquivo resultante confirmou o OpenAPI `3.0.3` e incluiu corretamente as duas rotas do experimento.
+A correção foi recompilada e executada. O arquivo resultante confirmou o OpenAPI `3.0.3` e incluiu corretamente as duas rotas TL++ do experimento: o Hello World e o acionador de exportação.
 
 ## Diagnóstico do YAML OpenAPI
 
@@ -49,6 +54,27 @@ O gerador reuniu 232 declarações de path, correspondentes a 226 paths únicos.
 As rotas `/api/v1/hello` e `/api/v1/openapi/export` aparecem uma vez cada e seus metadados foram gerados corretamente. Entretanto, as duplicidades tornam inválido o documento completo. O validador local passou a rejeitar qualquer YAML com paths duplicados e a informar as chaves e linhas conflitantes.
 
 O arquivo nativo também foi gravado em Windows-1252. Essa característica afeta a exibição dos acentos quando o arquivo é aberto como UTF-8, mas não causa as duplicidades.
+
+## Evidência comparativa TL++ e AdvPL
+
+Após a compilação e publicação do `WSRESTFUL`, o endpoint AdvPL respondeu corretamente em runtime. Uma nova execução autenticada do exportador retornou HTTP `200`, e o arquivo `hello_openapi_8084.yaml` foi atualizado em 2026-08-21 às 15:36:11. A busca direcionada no novo artefato não encontrou `/api/v1/hello-advpl`, `HloAdv`, `Hello World AdvPL` nem outro marcador do endpoint AdvPL.
+
+O resultado demonstra que, neste ambiente com TLPPCore `01.06.01`, `tlpp.doc.generate()` descobriu o endpoint TL++ baseado em annotation, mas não emitiu documentação para o endpoint AdvPL baseado em `WSRESTFUL`. A ausência foi registrada como resultado observado; não foram inventados metadados para representar uma operação que não existe no YAML nativo.
+
+| Aspecto | TL++ com annotation | AdvPL com `WSRESTFUL` |
+| --- | --- | --- |
+| Endpoint funcional | sim | sim |
+| Segurança herdada de `SECURITY=1` | HTTP `401` sem autenticação | HTTP `401` sem autenticação |
+| Resposta autenticada | HTTP `200`, JSON esperado | HTTP `200`, JSON esperado |
+| Descoberta por `tlpp.doc.generate()` | sim | não observada |
+| Path no YAML | `/api/v1/hello` | ausente |
+| Verbo no YAML | `get` | ausente |
+| Resumo no YAML | `Hello World` | ausente |
+| Descrição no YAML | emitida | ausente |
+| Resposta `200` no YAML | emitida | ausente |
+| Metadados declarados no fonte | annotation `@Get` | `DESCRIPTION`, `WSSYNTAX`, `PATH` e `PRODUCES` |
+
+Essa lacuna delimita uma responsabilidade provável da futura biblioteca: complementar ou produzir documentação para serviços `WSRESTFUL`, sem alterar seu comportamento de runtime.
 
 ## Segurança dos artefatos
 

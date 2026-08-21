@@ -16,9 +16,9 @@ Foram descartadas a concatenação manual de JSON e a adoção de `FWAdapterBase
 | --- | --- |
 | Fonte | `examples/hello-world/hello-api-advpl.prw` |
 | Includes | `totvs.ch` e `restful.ch` |
-| Serviço | `HloAdv` |
+| Serviço | `api` |
 | Método | `GET Hello` |
-| Sintaxe | `/api/v1/hello-advpl` |
+| Sintaxe | `/v1/hello-advpl` (URL final: `/rest/api/v1/hello-advpl`) |
 | Formato | `APPLICATION_JSON` |
 | Resposta | `JsonObject():New()`, `Self:SetContentType()` e `Self:SetResponse()` |
 | Persistência | nenhuma |
