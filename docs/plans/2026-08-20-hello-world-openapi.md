@@ -2,9 +2,11 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use executing-plans to implement this plan task-by-task.
 
-**Goal:** Criar, compilar e validar uma prova de conceito TL++ que publique um Hello World no REST 2.0 e exporte sua documentação nativa em OpenAPI JSON.
+**Goal:** Criar, compilar e validar uma prova de conceito TL++ que publique um Hello World no REST 2.0 e exporte sua documentação nativa em OpenAPI YAML.
 
-**Architecture:** Dois endpoints TL++ isolados em `examples/hello-world`: um retorna o JSON Hello World e outro aciona `tlpp.doc.generate()`. Scripts PowerShell validam os contratos dos fontes e do artefato OpenAPI; o JSON bruto permanece local e somente um snapshot sanitizado da operação Hello World é versionado.
+**Architecture:** Dois endpoints TL++ isolados em `examples/hello-world`: um retorna o JSON Hello World e outro aciona `tlpp.doc.generate()`. Scripts PowerShell validam os contratos dos fontes e do artefato OpenAPI; o YAML bruto permanece local e somente um snapshot JSON sanitizado da operação Hello World é versionado.
+
+> **Correção após o teste de runtime (2026-08-21):** o formato `json` gera a representação bruta do REST-DOC e produziu um arquivo inválido neste ambiente. O formato `swagger`, utilizado nos exemplos oficiais do TLPPCore, gera a especificação OpenAPI em YAML. As etapas operacionais abaixo devem usar o YAML como entrada; os fixtures JSON foram mantidos para testar compatibilidade do validador e o formato do snapshot.
 
 **Tech Stack:** TL++/TLPPCore 01.06.01, REST 2.0 Protheus via `[HTTPV11]`, `tlpp-rest.th`, `JsonObject`, `tlpp.doc.generate()`, PowerShell e TDS VS Code.
 
@@ -318,7 +320,7 @@ User Function GenOApi() as Logical
     Local cResp := "" as Character
 
     Begin Sequence
-        tlpp.doc.generate("json", "hello_openapi", {8084}, {"pt-br"})
+        tlpp.doc.generate("swagger", "hello_openapi", {8084}, {"pt-br"})
     Recover
         lOk := .F.
     End Sequence
@@ -563,7 +565,7 @@ Criar `docs/experiments/hello-world.md` com:
 
 ## Objetivo
 
-Validar a publicação de um endpoint TL++ por annotation, a documentação nativa e a exportação do documento OpenAPI em JSON.
+Validar a publicação de um endpoint TL++ por annotation, a documentação nativa e a exportação do documento OpenAPI em YAML.
 
 ## Resultados
 
@@ -571,7 +573,7 @@ Validar a publicação de um endpoint TL++ por annotation, a documentação nati
 - Exportação com `tlpp.doc.generate()`: pendente.
 - Versão declarada no documento: pendente.
 - Path efetivamente gerado: pendente.
-- Localização do JSON bruto: pendente.
+- Localização do YAML bruto: pendente.
 - Visualização da documentação: pendente.
 
 ## Segurança dos artefatos
@@ -669,10 +671,10 @@ Expected: HTTP `200` e JSON indicando solicitação bem-sucedida. Se retornar `5
 
 Atualizar `docs/experiments/hello-world.md` com status HTTP, cabeçalhos relevantes e corpo observado, sem registrar credenciais ou cabeçalhos de autorização.
 
-### Task 9: Localizar, validar e sanitizar o JSON real
+### Task 9: Localizar, validar e sanitizar o YAML real
 
 **Files:**
-- Local only: `artifacts/local/hello_openapi_<porta>.json`
+- Local only: `artifacts/local/hello_openapi_<porta>.yaml`
 - Create after runtime: `examples/hello-world/snapshots/hello-openapi.json`
 - Update: `docs/experiments/hello-world.md`
 
@@ -681,7 +683,7 @@ Atualizar `docs/experiments/hello-world.md` com status HTTP, cabeçalhos relevan
 Run:
 
 ```powershell
-Get-ChildItem -Path "D:\TOTVS12\Protheus12_2510" -Recurse -Filter "hello_openapi*.json" -ErrorAction SilentlyContinue |
+Get-ChildItem -Path "D:\TOTVS12\Protheus12_2510" -Recurse -Filter "hello_openapi*.yaml" -ErrorAction SilentlyContinue |
     Select-Object FullName, Length, LastWriteTime
 ```
 
@@ -693,17 +695,17 @@ Run, substituindo `CAMINHO_GERADO` pelo resultado real verificado:
 
 ```powershell
 New-Item -ItemType Directory -Path "artifacts/local" -Force | Out-Null
-Copy-Item -LiteralPath "CAMINHO_GERADO" -Destination "artifacts/local/hello-openapi.json"
+Copy-Item -LiteralPath "CAMINHO_GERADO" -Destination "artifacts/local/hello-openapi.yaml"
 ```
 
-Expected: `git status --short` não lista o JSON bruto.
+Expected: `git status --short` não lista o YAML bruto.
 
 **Step 3: Validar o documento real**
 
 Run:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/validate-hello-openapi.ps1 -Path artifacts/local/hello-openapi.json
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/validate-hello-openapi.ps1 -Path artifacts/local/hello-openapi.yaml
 ```
 
 Expected: versão e path real informados pelo validador.
@@ -713,7 +715,7 @@ Expected: versão e path real informados pelo validador.
 Run:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/extract-hello-openapi.ps1 -InputPath artifacts/local/hello-openapi.json -OutputPath examples/hello-world/snapshots/hello-openapi.json
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/extract-hello-openapi.ps1 -InputPath artifacts/local/hello-openapi.yaml -OutputPath examples/hello-world/snapshots/hello-openapi.json
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/validate-hello-openapi.ps1 -Path examples/hello-world/snapshots/hello-openapi.json
 ```
 

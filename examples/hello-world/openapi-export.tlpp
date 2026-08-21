@@ -21,7 +21,7 @@ User Function GenOApi() as Logical
     Local cResp := "" as Character
 
     Begin Sequence
-        tlpp.doc.generate("json", "hello_openapi", {8084}, {"pt-br"})
+        tlpp.doc.generate("swagger", "hello_openapi", {8084}, {"pt-br"})
     Recover
         lOk := .F.
     End Sequence
