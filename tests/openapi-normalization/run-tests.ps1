@@ -154,8 +154,8 @@ try {
         Invoke-Normalizer -Fixture "unique-path.yaml" -Output $output
         $content = Get-Content -LiteralPath $output -Raw -Encoding UTF8
 
-        Assert-MatchCount -Content $content -Pattern '(?m)^  /api/items:$' -Expected 1 -Message "Path único alterado."
-        Assert-MatchCount -Content $content -Pattern '(?m)^    get:$' -Expected 1 -Message "Operação GET ausente."
+        Assert-MatchCount -Content $content -Pattern '(?m)^  /api/items:\r?$' -Expected 1 -Message "Path único alterado."
+        Assert-MatchCount -Content $content -Pattern '(?m)^    get:\r?$' -Expected 1 -Message "Operação GET ausente."
         Assert-True -Condition $content.Contains("info:") -Message "Seção info ausente."
         Assert-True -Condition $content.Contains("components:") -Message "Seção components ausente."
     }
@@ -165,9 +165,9 @@ try {
         Invoke-Normalizer -Fixture "merge-two-methods.yaml" -Output $output
         $content = Get-Content -LiteralPath $output -Raw -Encoding UTF8
 
-        Assert-MatchCount -Content $content -Pattern '(?m)^  /api/items/\{id\}:$' -Expected 1 -Message "Path duplicado não consolidado."
-        Assert-MatchCount -Content $content -Pattern '(?m)^    get:$' -Expected 1 -Message "Operação GET ausente."
-        Assert-MatchCount -Content $content -Pattern '(?m)^    put:$' -Expected 1 -Message "Operação PUT ausente."
+        Assert-MatchCount -Content $content -Pattern '(?m)^  /api/items/\{id\}:\r?$' -Expected 1 -Message "Path duplicado não consolidado."
+        Assert-MatchCount -Content $content -Pattern '(?m)^    get:\r?$' -Expected 1 -Message "Operação GET ausente."
+        Assert-MatchCount -Content $content -Pattern '(?m)^    put:\r?$' -Expected 1 -Message "Operação PUT ausente."
     }
 
     Invoke-Test -Name "consolida três ocorrências preservando a ordem" -Body {
@@ -178,7 +178,7 @@ try {
         $postIndex = $content.IndexOf("    post:", [StringComparison]::Ordinal)
         $deleteIndex = $content.IndexOf("    delete:", [StringComparison]::Ordinal)
 
-        Assert-MatchCount -Content $content -Pattern '(?m)^  /api/orders:$' -Expected 1 -Message "Path triplicado não consolidado."
+        Assert-MatchCount -Content $content -Pattern '(?m)^  /api/orders:\r?$' -Expected 1 -Message "Path triplicado não consolidado."
         Assert-True -Condition ($getIndex -ge 0 -and $getIndex -lt $postIndex -and $postIndex -lt $deleteIndex) -Message "Ordem dos métodos não preservada."
     }
 
@@ -187,10 +187,10 @@ try {
         Invoke-Normalizer -Fixture "shared-identical.yaml" -Output $output
         $content = Get-Content -LiteralPath $output -Raw -Encoding UTF8
 
-        Assert-MatchCount -Content $content -Pattern '(?m)^  /api/customers/\{id\}:$' -Expected 1 -Message "Path com campo compartilhado não consolidado."
-        Assert-MatchCount -Content $content -Pattern '(?m)^    parameters:$' -Expected 1 -Message "Campo compartilhado não foi deduplicado."
-        Assert-MatchCount -Content $content -Pattern '(?m)^    get:$' -Expected 1 -Message "Operação GET ausente."
-        Assert-MatchCount -Content $content -Pattern '(?m)^    patch:$' -Expected 1 -Message "Operação PATCH ausente."
+        Assert-MatchCount -Content $content -Pattern '(?m)^  /api/customers/\{id\}:\r?$' -Expected 1 -Message "Path com campo compartilhado não consolidado."
+        Assert-MatchCount -Content $content -Pattern '(?m)^    parameters:\r?$' -Expected 1 -Message "Campo compartilhado não foi deduplicado."
+        Assert-MatchCount -Content $content -Pattern '(?m)^    get:\r?$' -Expected 1 -Message "Operação GET ausente."
+        Assert-MatchCount -Content $content -Pattern '(?m)^    patch:\r?$' -Expected 1 -Message "Operação PATCH ausente."
     }
 
     Invoke-Test -Name "rejeita o mesmo verbo repetido" -Body {
