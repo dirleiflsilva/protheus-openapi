@@ -6,11 +6,11 @@ O TLPPCore `01.06.01` gerou um YAML OpenAPI com 232 declarações para 226 paths
 
 ## Objetivos
 
-- [ ] Consolidar automaticamente apenas paths duplicados sem ambiguidades.
-- [ ] Rejeitar conflitos sem escolher ou descartar conteúdo silenciosamente.
-- [ ] Preservar o YAML bruto e produzir um novo arquivo válido em UTF-8 sem BOM.
-- [ ] Executar sem módulos ou bibliotecas externas.
-- [ ] Comprovar o comportamento com fixtures sanitizadas e com o YAML real ignorado pelo Git.
+- [x] Consolidar automaticamente apenas paths duplicados sem ambiguidades.
+- [x] Rejeitar conflitos sem escolher ou descartar conteúdo silenciosamente.
+- [x] Preservar o YAML bruto e produzir um novo arquivo válido em UTF-8 sem BOM.
+- [x] Executar sem módulos ou bibliotecas externas.
+- [x] Comprovar o comportamento com fixtures sanitizadas e com o YAML real ignorado pelo Git.
 
 ## Fora do escopo
 
@@ -73,18 +73,17 @@ O TLPPCore `01.06.01` gerou um YAML OpenAPI com 232 declarações para 226 paths
 
 | Requisito | História | Estado |
 | --- | --- | --- |
-| NORM-01 a NORM-06 | Consolidar paths | Em design |
-| NORM-07 a NORM-10 | Rejeitar conflitos | Em design |
-| NORM-11 a NORM-15 | Publicar saída | Em design |
+| NORM-01 a NORM-06 | Consolidar paths | Verificado |
+| NORM-07 a NORM-10 | Rejeitar conflitos | Verificado |
+| NORM-11 a NORM-15 | Publicar saída | Verificado |
 
 **Cobertura:** 15 requisitos, 15 incluídos no design, 0 não mapeados.
 
 ## Critérios de sucesso
 
-- [ ] Todas as fixtures válidas são normalizadas sem perda de operações.
-- [ ] Todas as fixtures ambíguas são rejeitadas sem saída parcial.
-- [ ] O YAML real passa de 232 declarações para 226 paths únicos.
-- [ ] Os cinco grupos duplicados do ambiente são consolidados.
-- [ ] O arquivo normalizado passa pela verificação estrutural existente.
-- [ ] O YAML bruto permanece inalterado e fora do Git.
-
+- [x] Todas as fixtures válidas são normalizadas sem perda de operações.
+- [x] Todas as fixtures ambíguas são rejeitadas sem saída parcial.
+- [x] O YAML real passa de 232 declarações para 226 paths únicos.
+- [x] Os cinco grupos duplicados do ambiente são consolidados.
+- [x] O arquivo normalizado passa pela verificação estrutural existente.
+- [x] O YAML bruto permanece inalterado e fora do Git.

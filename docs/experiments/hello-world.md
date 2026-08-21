@@ -30,7 +30,8 @@ Validar a publicação de endpoints equivalentes em TL++ e AdvPL, comparar sua d
 | Path efetivamente gerado | `/api/v1/hello`, com `GET`, summary, descrição e resposta `200` esperados. |
 | Descoberta do path AdvPL | `/api/v1/hello-advpl` não foi emitido no YAML nativo. |
 | Localização do artefato bruto | `D:\TOTVS12\Protheus12_2510\protheus_data\system\hello_openapi_8084.yaml`. |
-| Validação e extração do snapshot sanitizado | fragmento Hello World válido; documento completo rejeitado por paths duplicados; extração pendente. |
+| Normalização do documento completo | 232 declarações consolidadas em 226 paths únicos; cinco grupos e seis operações incorporadas. |
+| Validação do YAML normalizado | OpenAPI `3.0.3` aceito pelo validador do experimento; saída UTF-8 sem BOM. |
 | Visualização da documentação nativa | VS Code identificou seis ocorrências de chaves YAML duplicadas em cinco paths padrão. |
 
 O endpoint autenticado retornou exatamente `{"message":"Hello World","language":"TL++","status":"success"}`. O acionador de exportação também retornou HTTP `200`.
@@ -54,6 +55,26 @@ O gerador reuniu 232 declarações de path, correspondentes a 226 paths únicos.
 As rotas `/api/v1/hello` e `/api/v1/openapi/export` aparecem uma vez cada e seus metadados foram gerados corretamente. Entretanto, as duplicidades tornam inválido o documento completo. O validador local passou a rejeitar qualquer YAML com paths duplicados e a informar as chaves e linhas conflitantes.
 
 O arquivo nativo também foi gravado em Windows-1252. Essa característica afeta a exibição dos acentos quando o arquivo é aberto como UTF-8, mas não causa as duplicidades.
+
+## Normalização segura do YAML completo
+
+O script `scripts/normalize-openapi-paths.ps1` foi implementado sem dependências externas para consolidar apenas duplicidades sem ambiguidades. Paths repetidos com verbos HTTP distintos são unidos; o mesmo verbo repetido ou campos compartilhados incompatíveis interrompem a execução com diagnóstico de path, chave e linhas.
+
+A execução sobre o artefato real apresentou:
+
+| Medida | Resultado |
+| --- | --- |
+| Declarações de path lidas | 232 |
+| Paths únicos publicados | 226 |
+| Grupos duplicados consolidados | 5 |
+| Operações incorporadas | 6 |
+| Versão validada | OpenAPI `3.0.3` |
+| Encoding da saída | UTF-8 sem BOM |
+| Testes automatizados | 15 aprovados, 0 falhas |
+
+O arquivo bruto permaneceu com 54.260 bytes, data `2026-08-21 15:36:11` e SHA-256 `51998A70AAC61EE782E233033FD2A5A607DCF693F7C0CAF9F4321F9301F3467E` antes e depois do processamento. O resultado foi gravado como `artifacts/local/hello-openapi-normalized.yaml`, caminho ignorado pelo Git.
+
+A normalização corrige a estrutura agregada dos paths, mas deliberadamente não cria a operação AdvPL ausente. A complementação documental de endpoints `WSRESTFUL` permanece como uma feature posterior.
 
 ## Evidência comparativa TL++ e AdvPL
 
@@ -89,7 +110,8 @@ Não registrar credenciais, cabeçalhos de autorização nem configurações com
 - Formato e versão produzidos pelo gerador nativo em modo `swagger`: YAML OpenAPI `3.0.3` em Windows-1252.
 - Prefixo real do path e endereço da interface de documentação: pendente.
 - Diretório de saída escolhido pelo TLPPCore: confirmado como `protheus_data\system`.
-- Documento completo: inválido devido a cinco paths padrão duplicados; o problema não pertence às rotas do experimento.
+- Documento bruto: inválido devido a cinco paths padrão duplicados; o problema não pertence às rotas do experimento.
+- Documento normalizado: estruturalmente válido para o experimento, com os cinco grupos consolidados sem conflito.
 
 ## Roteiro operacional
 
@@ -102,17 +124,23 @@ Não registrar credenciais, cabeçalhos de autorização nem configurações com
 
 2. Recompilar `openapi-export.tlpp` no RPO REST do ambiente `P12_2510` e registrar o resultado apresentado pela ferramenta.
 3. Chamar novamente o endpoint de exportação usando autenticação fornecida apenas no cliente HTTP; registrar somente status, cabeçalhos relevantes e corpo não sensível.
-4. Localizar o YAML gerado, copiá-lo como `artifacts/local/hello-openapi.yaml` e validá-lo informando o parâmetro obrigatório `-Path`:
+4. Normalizar o YAML bruto para um artefato local ignorado pelo Git:
 
    ```powershell
-   powershell -NoProfile -ExecutionPolicy Bypass -File scripts/validate-hello-openapi.ps1 -Path artifacts/local/hello-openapi.yaml
+   powershell -NoProfile -ExecutionPolicy Bypass -File scripts/normalize-openapi-paths.ps1 -InputPath D:\TOTVS12\Protheus12_2510\protheus_data\system\hello_openapi_8084.yaml -OutputPath artifacts/local/hello-openapi-normalized.yaml -Force
    ```
 
-5. Gerar o snapshot mínimo informando os parâmetros obrigatórios `-InputPath` e `-OutputPath`; depois, inspecionar e validar o arquivo resultante:
+5. Validar o YAML normalizado:
 
    ```powershell
-   powershell -NoProfile -ExecutionPolicy Bypass -File scripts/extract-hello-openapi.ps1 -InputPath artifacts/local/hello-openapi.yaml -OutputPath examples/hello-world/snapshots/hello-openapi.json
+   powershell -NoProfile -ExecutionPolicy Bypass -File scripts/validate-hello-openapi.ps1 -Path artifacts/local/hello-openapi-normalized.yaml
+   ```
+
+6. Quando necessário, gerar o snapshot mínimo a partir do documento normalizado; depois, inspecionar e validar o arquivo resultante:
+
+   ```powershell
+   powershell -NoProfile -ExecutionPolicy Bypass -File scripts/extract-hello-openapi.ps1 -InputPath artifacts/local/hello-openapi-normalized.yaml -OutputPath examples/hello-world/snapshots/hello-openapi.json
    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/validate-hello-openapi.ps1 -Path examples/hello-world/snapshots/hello-openapi.json
    ```
 
-6. Abrir a documentação nativa, localizar `GET /api/v1/hello` e registrar a versão, o path, a resposta documentada e eventuais limitações.
+7. Abrir a documentação normalizada, localizar `GET /api/v1/hello` e registrar a versão, o path, a resposta documentada e eventuais limitações.

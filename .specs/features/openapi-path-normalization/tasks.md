@@ -2,7 +2,7 @@
 
 **Design:** `docs/plans/2026-08-21-openapi-path-normalization-design.md`  
 **Plano:** `docs/plans/2026-08-21-openapi-path-normalization.md`  
-**Estado:** em execução (T1, T2 e T3 concluídas)
+**Estado:** concluído
 
 ## Plano de execução
 
@@ -85,14 +85,14 @@ As tarefas são sequenciais porque todas evoluem o mesmo script e o mesmo execut
 
 **Concluída quando:**
 
-- [ ] o arquivo bruto mantém hash e data inalterados;
-- [ ] a saída fica em `artifacts/local/` e não é rastreada;
-- [ ] 232 declarações resultam em 226 paths únicos;
-- [ ] cinco grupos são consolidados sem conflito;
-- [ ] não restam chaves de path duplicadas;
-- [ ] `validate-hello-openapi.ps1` aceita o YAML normalizado;
-- [ ] todos os testes da feature e os contratos Hello World passam;
-- [ ] rastreabilidade NORM-01 a NORM-15 é marcada como verificada.
+- [x] o arquivo bruto mantém hash e data inalterados;
+- [x] a saída fica em `artifacts/local/` e não é rastreada;
+- [x] 232 declarações resultam em 226 paths únicos;
+- [x] cinco grupos são consolidados sem conflito;
+- [x] não restam chaves de path duplicadas;
+- [x] `validate-hello-openapi.ps1` aceita o YAML normalizado;
+- [x] todos os testes da feature e os contratos Hello World passam;
+- [x] rastreabilidade NORM-01 a NORM-15 é marcada como verificada.
 
 **Commit:** `docs(openapi): registra validação do yaml normalizado`
 
