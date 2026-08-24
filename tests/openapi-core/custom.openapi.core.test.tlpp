@@ -5,20 +5,49 @@
 namespace custom.openapi.core.test
 
 using namespace tlpp.probat
+using namespace custom.openapi.core
 
 /*/{Protheus.doc}
-    Valida o harness mínimo do PROBAT antes da implementação do núcleo OpenAPI.
+    Valida o harness mínimo do PROBAT e o contrato das informações da API.
 
     @type function
     @author Dirlei Silva
     @since 2026-08-24
-    @return logical, Resultado do smoke test PROBAT
+    @return logical, Resultado dos testes do núcleo OpenAPI
     @example
         Executar o fixture OApiTst pelo PROBAT.
 */
 @TestFixture()
 User Function OApiTst() as Logical
 
+    Local oInfo   as Object
+    Local oInv    as Object
+    Local aValid := {} as Array
+    Local aPend  := {} as Array
+
     assertEquals(.T., .T., "O harness PROBAT deve aceitar valores iguais.")
+
+    oInfo := OApiInfo():new(;
+        "Hello World API",;
+        "API de demonstração do núcleo OpenAPI.",;
+        "1.0.0";
+    )
+
+    assertEquals("Hello World API", oInfo:getTitle(), "O título deve ser preservado.")
+    assertEquals("API de demonstração do núcleo OpenAPI.", oInfo:getDesc(), "A descrição deve ser preservada.")
+    assertEquals("1.0.0", oInfo:getVer(), "A versão deve ser preservada.")
+
+    aValid := oInfo:validate()
+    assertEquals(0, Len(aValid), "Informações válidas não devem gerar pendências.")
+
+    oInv  := OApiInfo():new("", "Descrição opcional.", "")
+    aPend := oInv:validate()
+
+    assertEquals(2, Len(aPend), "Título e versão vazios devem gerar duas pendências.")
+
+    If Len(aPend) >= 2
+        assertEquals("Título da API é obrigatório.", aPend[1], "A pendência do título deve ocupar a primeira posição.")
+        assertEquals("Versão da API é obrigatória.", aPend[2], "A pendência da versão deve ocupar a segunda posição.")
+    EndIf
 
 Return .T.

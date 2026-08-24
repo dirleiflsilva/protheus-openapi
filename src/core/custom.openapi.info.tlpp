@@ -1,0 +1,91 @@
+#include "tlpp-core.th"
+#include "totvs.ch"
+
+namespace custom.openapi.core
+
+/*/{Protheus.doc} OApiInfo
+    Representa as informações básicas de uma API no documento OpenAPI.
+    @type class
+    @author Dirlei Silva
+    @since 2026-08-24
+*/
+class OApiInfo
+    private data cTitle  as character
+    private data cDesc   as character
+    private data cApiVer as character
+
+    public method new(cTitle as character, cDesc as character, cApiVer as character) as object
+    public method getTitle() as character
+    public method getDesc() as character
+    public method getVer() as character
+    public method validate() as array
+endclass
+
+/*/{Protheus.doc} OApiInfo::new
+    Inicializa as informações da API sem alterar os valores recebidos.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-24
+    @param cTitle, character, Título da API
+    @param cDesc, character, Descrição opcional da API
+    @param cApiVer, character, Versão da API
+    @return object, Instância inicializada de OApiInfo
+*/
+method new(cTitle as character, cDesc as character, cApiVer as character) as object class OApiInfo
+
+    ::cTitle  := cTitle
+    ::cDesc   := cDesc
+    ::cApiVer := cApiVer
+
+return self
+
+/*/{Protheus.doc} OApiInfo::getTitle
+    Retorna o título da API.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-24
+    @return character, Título informado para a API
+*/
+method getTitle() as character class OApiInfo
+return ::cTitle
+
+/*/{Protheus.doc} OApiInfo::getDesc
+    Retorna a descrição opcional da API.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-24
+    @return character, Descrição informada para a API
+*/
+method getDesc() as character class OApiInfo
+return ::cDesc
+
+/*/{Protheus.doc} OApiInfo::getVer
+    Retorna a versão da API.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-24
+    @return character, Versão informada para a API
+*/
+method getVer() as character class OApiInfo
+return ::cApiVer
+
+/*/{Protheus.doc} OApiInfo::validate
+    Retorna todas as pendências conhecidas das informações obrigatórias.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-24
+    @return array, Pendências encontradas para título e versão
+*/
+method validate() as array class OApiInfo
+
+    Local aPend := {} as Array
+
+    If Empty(::cTitle)
+        AAdd(aPend, "Título da API é obrigatório.")
+    EndIf
+
+    If Empty(::cApiVer)
+        AAdd(aPend, "Versão da API é obrigatória.")
+    EndIf
+
+return aPend

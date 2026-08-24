@@ -1,6 +1,7 @@
 $ErrorActionPreference = "Stop"
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $fixturePath = Join-Path $PSScriptRoot "custom.openapi.core.test.tlpp"
+$infoPath = Join-Path $repoRoot "src\core\custom.openapi.info.tlpp"
 
 function Get-Cp1252Content {
     param(
@@ -107,9 +108,100 @@ Assert-Match -Content $validationContent `
     -Pattern '(?im)^[\t ]*assertEquals[\t ]*\([\t ]*\.T\.[\t ]*,[\t ]*\.T\.' `
     -Message "Asserção smoke GREEN do PROBAT ausente."
 
+if (-not (Test-Path -LiteralPath $infoPath -PathType Leaf)) {
+    throw "Fonte OApiInfo não encontrado: $infoPath"
+}
+
+$infoContent = Get-Cp1252Content -Path $infoPath
+$infoIncludes = [regex]::Matches(
+    $infoContent,
+    '(?im)^[\t ]*#include[\t ]+["''](?<name>[^"'']+)["''][\t ]*\r?$'
+)
+$infoExpectedIncludes = @("tlpp-core.th", "totvs.ch")
+
+if ($infoIncludes.Count -lt $infoExpectedIncludes.Count) {
+    throw "Includes obrigatórios ausentes no fonte OApiInfo."
+}
+
+for ($index = 0; $index -lt $infoExpectedIncludes.Count; $index++) {
+    if ($infoIncludes[$index].Groups["name"].Value -cne $infoExpectedIncludes[$index]) {
+        throw "Ordem de includes inválida no OApiInfo: esperado '$($infoExpectedIncludes[$index])' na posição $($index + 1)."
+    }
+}
+
+Assert-Match -Content $infoContent `
+    -Pattern '(?m)^[\t ]*namespace[\t ]+custom\.openapi\.core[\t ]*\r?$' `
+    -Message "Namespace custom.openapi.core ausente no OApiInfo."
+Assert-Match -Content $infoContent `
+    -Pattern '(?im)^[\t ]*class[\t ]+OApiInfo\b' `
+    -Message "Classe OApiInfo ausente."
+
+$methodDocs = @{}
+
+foreach ($methodName in @("new", "getTitle", "getDesc", "getVer", "validate")) {
+    $methodMatch = [regex]::Match(
+        $infoContent,
+        "(?is)(?<doc>/\*/\{Protheus\.doc\}[\t ]+OApiInfo::$methodName\b.*?\*/)[\t \r\n]*method[\t ]+$methodName[\t ]*\("
+    )
+
+    if (-not $methodMatch.Success) {
+        throw "ProtheusDOC obrigatório ausente para OApiInfo::$methodName."
+    }
+
+    $methodDocs[$methodName] = $methodMatch.Groups["doc"].Value
+
+    foreach ($pattern in @(
+        '(?im)^[\t ]*@type[\t ]+method\b',
+        '(?im)^[\t ]*@author[\t ]+Dirlei Silva\b',
+        '(?im)^[\t ]*@since[\t ]+2026-08-24\b'
+    )) {
+        Assert-Match -Content $methodDocs[$methodName] `
+            -Pattern $pattern `
+            -Message "ProtheusDOC incompleto para OApiInfo::${methodName}: $pattern"
+    }
+}
+
+foreach ($pattern in @(
+    '(?im)^[\t ]*@param[\t ]+cTitle,[\t ]+character,[\t ]+[^\r\n]+$',
+    '(?im)^[\t ]*@param[\t ]+cDesc,[\t ]+character,[\t ]+[^\r\n]+$',
+    '(?im)^[\t ]*@param[\t ]+cApiVer,[\t ]+character,[\t ]+[^\r\n]+$',
+    '(?im)^[\t ]*@return[\t ]+object,[\t ]+[^\r\n]+$'
+)) {
+    Assert-Match -Content $methodDocs["new"] `
+        -Pattern $pattern `
+        -Message "ProtheusDOC incompleto para OApiInfo::new: $pattern"
+}
+
+foreach ($methodName in @("getTitle", "getDesc", "getVer")) {
+    Assert-Match -Content $methodDocs[$methodName] `
+        -Pattern '(?im)^[\t ]*@return[\t ]+character,[\t ]+[^\r\n]+$' `
+        -Message "@return character ausente para OApiInfo::$methodName."
+}
+
+Assert-Match -Content $methodDocs["validate"] `
+    -Pattern '(?im)^[\t ]*@return[\t ]+array,[\t ]+[^\r\n]+$' `
+    -Message "@return array ausente para OApiInfo::validate."
+
+Assert-Match -Content $infoContent `
+    -Pattern '(?is)/\*/\{Protheus\.doc\}[\t ]+OApiInfo\b.*?@type[\t ]+class\b.*?@author[\t ]+Dirlei Silva\b.*?@since[\t ]+2026-08-24\b.*?\*/[\t \r\n]*class[\t ]+OApiInfo\b' `
+    -Message "ProtheusDOC obrigatório ausente para a classe OApiInfo."
+
+$infoValidation = [regex]::Replace($infoContent, '(?s)/\*.*?\*/', '')
+$infoValidation = [regex]::Replace($infoValidation, '(?m)//[^\r\n]*', '')
+
+foreach ($methodName in @("new", "getTitle", "getDesc", "getVer", "validate")) {
+    Assert-Match -Content $infoValidation `
+        -Pattern "(?im)^[\t ]*public[\t ]+method[\t ]+$methodName[\t ]*\(" `
+        -Message "Método público OApiInfo::$methodName ausente na declaração da classe."
+    Assert-Match -Content $infoValidation `
+        -Pattern "(?im)^[\t ]*method[\t ]+$methodName[\t ]*\([^\r\n]*\)[^\r\n]*class[\t ]+OApiInfo\b" `
+        -Message "Implementação OApiInfo::$methodName ausente."
+}
+
 $forbidden = @{
     '(?im)^[\t ]*Function[\t ]+' = "Function não pode ser usado em customizações."
     '(?im)^[\t ]*User[\t ]+Function[\t ]+U_' = "Não declare o prefixo U_ explicitamente."
+    '(?i)\bcVer\b' = "Identificador cVer proibido: conflito com macro cVer de sigawin.ch."
     '(?i)\btlpp\.doc\.generate[\t ]*\(' = "O núcleo não pode depender de tlpp.doc.generate()."
     '(?i)\b(FOpen|FCreate|FRead|FWrite|MemoRead|MemoWrite|Directory)[\t ]*\(' = "O núcleo não pode depender de filesystem."
 }
