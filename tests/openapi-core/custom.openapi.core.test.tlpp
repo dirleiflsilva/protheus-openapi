@@ -1,0 +1,24 @@
+#include "tlpp-core.th"
+#include "tlpp-probat.th"
+#include "totvs.ch"
+
+namespace custom.openapi.core.test
+
+using namespace tlpp.probat
+
+/*/{Protheus.doc}
+    Valida o harness mínimo do PROBAT antes da implementação do núcleo OpenAPI.
+
+    @type function
+    @author Dirlei Silva
+    @since 2026-08-24
+    @return logical, Resultado do smoke test PROBAT
+    @example
+        Executar o fixture OApiTst pelo PROBAT.
+*/
+@TestFixture()
+User Function OApiTst() as Logical
+
+    assertEquals(.T., .T., "O harness PROBAT deve aceitar valores iguais.")
+
+Return .T.
