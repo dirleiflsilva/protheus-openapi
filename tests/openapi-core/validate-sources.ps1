@@ -168,10 +168,10 @@ foreach ($methodName in @("new", "getTitle", "getDesc", "getVer", "validate")) {
 }
 
 foreach ($pattern in @(
-    '(?im)^[\t ]*@param[\t ]+cTitle,[\t ]+character,[\t ]+[^\r\n]+$',
-    '(?im)^[\t ]*@param[\t ]+cDesc,[\t ]+character,[\t ]+[^\r\n]+$',
-    '(?im)^[\t ]*@param[\t ]+cApiVer,[\t ]+character,[\t ]+[^\r\n]+$',
-    '(?im)^[\t ]*@return[\t ]+object,[\t ]+[^\r\n]+$'
+    '(?im)^[\t ]*@param[\t ]+cTitle,[\t ]+character,[\t ]+[^\r\n]+\r?$',
+    '(?im)^[\t ]*@param[\t ]+cDesc,[\t ]+character,[\t ]+[^\r\n]+\r?$',
+    '(?im)^[\t ]*@param[\t ]+cApiVer,[\t ]+character,[\t ]+[^\r\n]+\r?$',
+    '(?im)^[\t ]*@return[\t ]+object,[\t ]+[^\r\n]+\r?$'
 )) {
     Assert-Match -Content $methodDocs["new"] `
         -Pattern $pattern `
@@ -180,12 +180,12 @@ foreach ($pattern in @(
 
 foreach ($methodName in @("getTitle", "getDesc", "getVer")) {
     Assert-Match -Content $methodDocs[$methodName] `
-        -Pattern '(?im)^[\t ]*@return[\t ]+character,[\t ]+[^\r\n]+$' `
+        -Pattern '(?im)^[\t ]*@return[\t ]+character,[\t ]+[^\r\n]+\r?$' `
         -Message "@return character ausente para OApiInfo::$methodName."
 }
 
 Assert-Match -Content $methodDocs["validate"] `
-    -Pattern '(?im)^[\t ]*@return[\t ]+array,[\t ]+[^\r\n]+$' `
+    -Pattern '(?im)^[\t ]*@return[\t ]+array,[\t ]+[^\r\n]+\r?$' `
     -Message "@return array ausente para OApiInfo::validate."
 
 Assert-Match -Content $infoContent `
@@ -311,10 +311,10 @@ foreach ($methodName in @("new", "getMethod", "getSummary", "getDesc", "getResps
 }
 
 foreach ($pattern in @(
-    '(?im)^[\t ]*@param[\t ]+cMethod,[\t ]+character,[\t ]+[^\r\n]+$',
-    '(?im)^[\t ]*@param[\t ]+cSummary,[\t ]+character,[\t ]+[^\r\n]+$',
-    '(?im)^[\t ]*@param[\t ]+cDesc,[\t ]+character,[\t ]+[^\r\n]+$',
-    '(?im)^[\t ]*@return[\t ]+object,[\t ]+[^\r\n]+$'
+    '(?im)^[\t ]*@param[\t ]+cMethod,[\t ]+character,[\t ]+[^\r\n]+\r?$',
+    '(?im)^[\t ]*@param[\t ]+cSummary,[\t ]+character,[\t ]+[^\r\n]+\r?$',
+    '(?im)^[\t ]*@param[\t ]+cDesc,[\t ]+character,[\t ]+[^\r\n]+\r?$',
+    '(?im)^[\t ]*@return[\t ]+object,[\t ]+[^\r\n]+\r?$'
 )) {
     Assert-Match -Content $operDocs["new"] `
         -Pattern $pattern `
@@ -323,17 +323,17 @@ foreach ($pattern in @(
 
 foreach ($methodName in @("getMethod", "getSummary", "getDesc")) {
     Assert-Match -Content $operDocs[$methodName] `
-        -Pattern '(?im)^[\t ]*@return[\t ]+character,[\t ]+[^\r\n]+$' `
+        -Pattern '(?im)^[\t ]*@return[\t ]+character,[\t ]+[^\r\n]+\r?$' `
         -Message "@return character ausente para OApiOper::$methodName."
 }
 
 Assert-Match -Content $operDocs["getResps"] `
-    -Pattern '(?im)^[\t ]*@return[\t ]+array,[\t ]+[^\r\n]+$' `
+    -Pattern '(?im)^[\t ]*@return[\t ]+array,[\t ]+[^\r\n]+\r?$' `
     -Message "@return array ausente para OApiOper::getResps."
 
 foreach ($pattern in @(
-    '(?im)^[\t ]*@param[\t ]+oResp,[\t ]+object,[\t ]+[^\r\n]+$',
-    '(?im)^[\t ]*@return[\t ]+object,[\t ]+[^\r\n]+$'
+    '(?im)^[\t ]*@param[\t ]+oResp,[\t ]+object,[\t ]+[^\r\n]+\r?$',
+    '(?im)^[\t ]*@return[\t ]+object,[\t ]+[^\r\n]+\r?$'
 )) {
     Assert-Match -Content $operDocs["addResp"] `
         -Pattern $pattern `
@@ -341,7 +341,7 @@ foreach ($pattern in @(
 }
 
 Assert-Match -Content $operDocs["validate"] `
-    -Pattern '(?im)^[\t ]*@return[\t ]+array,[\t ]+[^\r\n]+$' `
+    -Pattern '(?im)^[\t ]*@return[\t ]+array,[\t ]+[^\r\n]+\r?$' `
     -Message "@return array ausente para OApiOper::validate."
 
 Assert-Match -Content $operContent `
@@ -361,9 +361,9 @@ foreach ($methodName in @("new", "getMethod", "getSummary", "getDesc", "getResps
 }
 
 foreach ($pattern in @(
-    '(?im)^[\t ]*@param[\t ]+cCode,[\t ]+character,[\t ]+[^\r\n]+$',
-    '(?im)^[\t ]*@param[\t ]+cDesc,[\t ]+character,[\t ]+[^\r\n]+$',
-    '(?im)^[\t ]*@return[\t ]+object,[\t ]+[^\r\n]+$'
+    '(?im)^[\t ]*@param[\t ]+cCode,[\t ]+character,[\t ]+[^\r\n]+\r?$',
+    '(?im)^[\t ]*@param[\t ]+cDesc,[\t ]+character,[\t ]+[^\r\n]+\r?$',
+    '(?im)^[\t ]*@return[\t ]+object,[\t ]+[^\r\n]+\r?$'
 )) {
     Assert-Match -Content $respDocs["new"] `
         -Pattern $pattern `
@@ -372,12 +372,12 @@ foreach ($pattern in @(
 
 foreach ($methodName in @("getCode", "getDesc")) {
     Assert-Match -Content $respDocs[$methodName] `
-        -Pattern '(?im)^[\t ]*@return[\t ]+character,[\t ]+[^\r\n]+$' `
+        -Pattern '(?im)^[\t ]*@return[\t ]+character,[\t ]+[^\r\n]+\r?$' `
         -Message "@return character ausente para OApiResp::$methodName."
 }
 
 Assert-Match -Content $respDocs["validate"] `
-    -Pattern '(?im)^[\t ]*@return[\t ]+array,[\t ]+[^\r\n]+$' `
+    -Pattern '(?im)^[\t ]*@return[\t ]+array,[\t ]+[^\r\n]+\r?$' `
     -Message "@return array ausente para OApiResp::validate."
 
 Assert-Match -Content $respContent `
@@ -503,8 +503,8 @@ foreach ($methodName in @("new", "getOpenApi", "getInfo", "getPaths", "addPath",
 }
 
 foreach ($pattern in @(
-    '(?im)^[\t ]*@param[\t ]+oInfo,[\t ]+object,[\t ]+[^\r\n]+$',
-    '(?im)^[\t ]*@return[\t ]+object,[\t ]+[^\r\n]+$'
+    '(?im)^[\t ]*@param[\t ]+oInfo,[\t ]+object,[\t ]+[^\r\n]+\r?$',
+    '(?im)^[\t ]*@return[\t ]+object,[\t ]+[^\r\n]+\r?$'
 )) {
     Assert-Match -Content $docDocs["new"] `
         -Pattern $pattern `
@@ -512,20 +512,20 @@ foreach ($pattern in @(
 }
 
 Assert-Match -Content $docDocs["getOpenApi"] `
-    -Pattern '(?im)^[\t ]*@return[\t ]+character,[\t ]+[^\r\n]+$' `
+    -Pattern '(?im)^[\t ]*@return[\t ]+character,[\t ]+[^\r\n]+\r?$' `
     -Message "@return character ausente para OApiDoc::getOpenApi."
 
 Assert-Match -Content $docDocs["getInfo"] `
-    -Pattern '(?im)^[\t ]*@return[\t ]+object,[\t ]+[^\r\n]+$' `
+    -Pattern '(?im)^[\t ]*@return[\t ]+object,[\t ]+[^\r\n]+\r?$' `
     -Message "@return object ausente para OApiDoc::getInfo."
 
 Assert-Match -Content $docDocs["getPaths"] `
-    -Pattern '(?im)^[\t ]*@return[\t ]+array,[\t ]+[^\r\n]+$' `
+    -Pattern '(?im)^[\t ]*@return[\t ]+array,[\t ]+[^\r\n]+\r?$' `
     -Message "@return array ausente para OApiDoc::getPaths."
 
 foreach ($pattern in @(
-    '(?im)^[\t ]*@param[\t ]+oPath,[\t ]+object,[\t ]+[^\r\n]+$',
-    '(?im)^[\t ]*@return[\t ]+object,[\t ]+[^\r\n]+$'
+    '(?im)^[\t ]*@param[\t ]+oPath,[\t ]+object,[\t ]+[^\r\n]+\r?$',
+    '(?im)^[\t ]*@return[\t ]+object,[\t ]+[^\r\n]+\r?$'
 )) {
     Assert-Match -Content $docDocs["addPath"] `
         -Pattern $pattern `
@@ -533,7 +533,7 @@ foreach ($pattern in @(
 }
 
 Assert-Match -Content $docDocs["validate"] `
-    -Pattern '(?im)^[\t ]*@return[\t ]+array,[\t ]+[^\r\n]+$' `
+    -Pattern '(?im)^[\t ]*@return[\t ]+array,[\t ]+[^\r\n]+\r?$' `
     -Message "@return array ausente para OApiDoc::validate."
 
 Assert-Match -Content $docContent `
@@ -553,8 +553,8 @@ foreach ($methodName in @("new", "getOpenApi", "getInfo", "getPaths", "addPath",
 }
 
 foreach ($pattern in @(
-    '(?im)^[\t ]*@param[\t ]+cPath,[\t ]+character,[\t ]+[^\r\n]+$',
-    '(?im)^[\t ]*@return[\t ]+object,[\t ]+[^\r\n]+$'
+    '(?im)^[\t ]*@param[\t ]+cPath,[\t ]+character,[\t ]+[^\r\n]+\r?$',
+    '(?im)^[\t ]*@return[\t ]+object,[\t ]+[^\r\n]+\r?$'
 )) {
     Assert-Match -Content $pathDocs["new"] `
         -Pattern $pattern `
@@ -562,16 +562,16 @@ foreach ($pattern in @(
 }
 
 Assert-Match -Content $pathDocs["getPath"] `
-    -Pattern '(?im)^[\t ]*@return[\t ]+character,[\t ]+[^\r\n]+$' `
+    -Pattern '(?im)^[\t ]*@return[\t ]+character,[\t ]+[^\r\n]+\r?$' `
     -Message "@return character ausente para OApiPath::getPath."
 
 Assert-Match -Content $pathDocs["getOpers"] `
-    -Pattern '(?im)^[\t ]*@return[\t ]+array,[\t ]+[^\r\n]+$' `
+    -Pattern '(?im)^[\t ]*@return[\t ]+array,[\t ]+[^\r\n]+\r?$' `
     -Message "@return array ausente para OApiPath::getOpers."
 
 foreach ($pattern in @(
-    '(?im)^[\t ]*@param[\t ]+oOper,[\t ]+object,[\t ]+[^\r\n]+$',
-    '(?im)^[\t ]*@return[\t ]+object,[\t ]+[^\r\n]+$'
+    '(?im)^[\t ]*@param[\t ]+oOper,[\t ]+object,[\t ]+[^\r\n]+\r?$',
+    '(?im)^[\t ]*@return[\t ]+object,[\t ]+[^\r\n]+\r?$'
 )) {
     Assert-Match -Content $pathDocs["addOper"] `
         -Pattern $pattern `
@@ -579,7 +579,7 @@ foreach ($pattern in @(
 }
 
 Assert-Match -Content $pathDocs["validate"] `
-    -Pattern '(?im)^[\t ]*@return[\t ]+array,[\t ]+[^\r\n]+$' `
+    -Pattern '(?im)^[\t ]*@return[\t ]+array,[\t ]+[^\r\n]+\r?$' `
     -Message "@return array ausente para OApiPath::validate."
 
 Assert-Match -Content $pathContent `
@@ -652,12 +652,12 @@ foreach ($methodName in @("new", "toJson")) {
 }
 
 Assert-Match -Content $jsonDocs["new"] `
-    -Pattern '(?im)^[\t ]*@return[\t ]+object,[\t ]+[^\r\n]+$' `
+    -Pattern '(?im)^[\t ]*@return[\t ]+object,[\t ]+[^\r\n]+\r?$' `
     -Message "@return object ausente para OApiJson::new."
 
 foreach ($pattern in @(
-    '(?im)^[\t ]*@param[\t ]+oDoc,[\t ]+object,[\t ]+[^\r\n]+$',
-    '(?im)^[\t ]*@return[\t ]+character,[\t ]+[^\r\n]+$'
+    '(?im)^[\t ]*@param[\t ]+oDoc,[\t ]+object,[\t ]+[^\r\n]+\r?$',
+    '(?im)^[\t ]*@return[\t ]+character,[\t ]+[^\r\n]+\r?$'
 )) {
     Assert-Match -Content $jsonDocs["toJson"] `
         -Pattern $pattern `
@@ -748,7 +748,7 @@ foreach ($pattern in @(
     '(?im)^[\t ]*@type[\t ]+function\b',
     '(?im)^[\t ]*@author[\t ]+Dirlei Silva\b',
     '(?im)^[\t ]*@since[\t ]+2026-08-25\b',
-    '(?im)^[\t ]*@return[\t ]+logical,[\t ]+[^\r\n]+$'
+    '(?im)^[\t ]*@return[\t ]+logical,[\t ]+[^\r\n]+\r?$'
 )) {
     Assert-Match -Content $apiDecl.Groups["doc"].Value `
         -Pattern $pattern `
