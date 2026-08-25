@@ -1,0 +1,107 @@
+#include "tlpp-core.th"
+#include "totvs.ch"
+
+namespace custom.openapi.core
+
+/*/{Protheus.doc} OApiPath
+    Representa um path e suas operações no documento OpenAPI.
+    @type class
+    @author Dirlei Silva
+    @since 2026-08-25
+*/
+class OApiPath
+    private data cPath  as character
+    private data aOpers as array
+
+    public method new(cPath as character) as object
+    public method getPath() as character
+    public method getOpers() as array
+    public method addOper(oOper as object) as object
+    public method validate() as array
+endclass
+
+/*/{Protheus.doc} OApiPath::new
+    Inicializa o path quando seu valor começa com uma barra.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-25
+    @param cPath, character, Path OpenAPI que será representado
+    @return object, Instância inicializada de OApiPath
+*/
+method new(cPath as character) as object class OApiPath
+
+    If Left(cPath, 1) != "/"
+        UserException("Path OpenAPI inválido: " + cPath + ".")
+    EndIf
+
+    ::cPath  := cPath
+    ::aOpers := {}
+
+return self
+
+/*/{Protheus.doc} OApiPath::getPath
+    Retorna o path OpenAPI informado.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-25
+    @return character, Path OpenAPI representado
+*/
+method getPath() as character class OApiPath
+return ::cPath
+
+/*/{Protheus.doc} OApiPath::getOpers
+    Retorna uma cópia rasa das operações do path.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-25
+    @return array, Cópia das operações incluídas no path
+*/
+method getOpers() as array class OApiPath
+return AClone(::aOpers)
+
+/*/{Protheus.doc} OApiPath::addOper
+    Inclui uma operação quando o verbo ainda não pertence ao path.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-25
+    @param oOper, object, Operação OpenAPI que será incluída
+    @return object, Própria instância de OApiPath
+*/
+method addOper(oOper as object) as object class OApiPath
+
+    Local cMethod := oOper:getMethod() as Character
+    Local nOper   := 0 as Numeric
+
+    For nOper := 1 To Len(::aOpers)
+        If ::aOpers[nOper]:getMethod() == cMethod
+            UserException("Operação duplicada no path " + ::cPath + ": " + cMethod + ".")
+        EndIf
+    Next nOper
+
+    AAdd(::aOpers, oOper)
+
+return self
+
+/*/{Protheus.doc} OApiPath::validate
+    Retorna todas as pendências das operações com o contexto do path.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-25
+    @return array, Pendências encontradas nas operações do path
+*/
+method validate() as array class OApiPath
+
+    Local aPend  := {} as Array
+    Local aOPend := {} as Array
+    Local nOper  := 0 as Numeric
+    Local nPend  := 0 as Numeric
+
+    For nOper := 1 To Len(::aOpers)
+        aOPend := ::aOpers[nOper]:validate()
+
+        For nPend := 1 To Len(aOPend)
+            AAdd(aPend, "Path " + ::cPath + ": " + aOPend[nPend])
+        Next nPend
+    Next nOper
+
+return aPend

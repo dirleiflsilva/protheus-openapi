@@ -29,17 +29,30 @@ User Function OApiTst() as Logical
     Local oDupResp as Object
     Local oNextRsp as Object
     Local oVerb    as Object
+    Local oPath    as Object
+    Local oBadPath as Object
+    Local oDupOper as Object
+    Local oPost    as Object
+    Local oPostRsp as Object
+    Local oPendP   as Object
+    Local oPendOp  as Object
     Local aValid  := {} as Array
     Local aPend   := {} as Array
     Local aRValid := {} as Array
     Local aRPend  := {} as Array
     Local aResps  := {} as Array
     Local aOPend  := {} as Array
+    Local aOpers  := {} as Array
+    Local aPPend  := {} as Array
     Local aVerbs  := {{"GET", "get"}, {"PUT", "put"}, {"POST", "post"}, {"DELETE", "delete"}, {"OPTIONS", "options"}, {"HEAD", "head"}, {"PATCH", "patch"}, {"TRACE", "trace"}} as Array
     Local cBadVerb := "" as Character
     Local cDupErr  := "" as Character
+    Local cPathErr := "" as Character
+    Local cDupOper := "" as Character
     Local lBadVerb := .F. as Logical
     Local lDupErr  := .F. as Logical
+    Local lPathErr := .F. as Logical
+    Local lDupOper := .F. as Logical
     Local nVerb    := 0 as Numeric
 
     assertEquals(.T., .T., "O harness PROBAT deve aceitar valores iguais.")
@@ -162,6 +175,74 @@ User Function OApiTst() as Logical
     assertEquals(2, Len(aResps), "A operação deve continuar utilizável após a inclusão rejeitada.")
     If Len(aResps) >= 2
         assertEquals("201", aResps[2]:getCode(), "Uma nova resposta válida deve ser aceita após a falha.")
+    EndIf
+
+    oPath := OApiPath():new("/api/v1/hello")
+    assertEquals("/api/v1/hello", oPath:getPath(), "O path deve ser preservado.")
+
+    oPath:addOper(oOper)
+    aOpers := oPath:getOpers()
+
+    assertEquals(1, Len(aOpers), "A operação GET válida deve ser incluída no path.")
+    If Len(aOpers) >= 1
+        assertEquals("get", aOpers[1]:getMethod(), "O verbo da operação incluída deve ser preservado.")
+        assertEquals("Retorna a saudação", aOpers[1]:getSummary(), "O resumo da primeira operação deve ser preservado.")
+    EndIf
+
+    oDupOper := OApiOper():new("GET", "Resumo duplicado", "Não deve substituir a operação original.")
+    AAdd(aOpers, oDupOper)
+    assertEquals(2, Len(aOpers), "O array retornado deve aceitar alteração externa isolada.")
+
+    aOpers := oPath:getOpers()
+    assertEquals(1, Len(aOpers), "A alteração externa não deve modificar as operações internas.")
+
+    Try
+        oBadPath := OApiPath():new("api/v1/hello")
+    Catch oError
+        lPathErr := .T.
+        cPathErr := oError:Description
+    EndTry
+
+    assertEquals(.T., lPathErr, "Path sem barra inicial deve falhar imediatamente.")
+    assertEquals("Path OpenAPI inválido: api/v1/hello.", cPathErr, "O erro deve diagnosticar o path inválido.")
+
+    Try
+        oPath:addOper(oDupOper)
+    Catch oError
+        lDupOper := .T.
+        cDupOper := oError:Description
+    EndTry
+
+    assertEquals(.T., lDupOper, "Verbo duplicado no mesmo path deve falhar imediatamente.")
+    assertEquals("Operação duplicada no path /api/v1/hello: get.", cDupOper, "O erro deve identificar o path e o verbo duplicado.")
+
+    aOpers := oPath:getOpers()
+    assertEquals(1, Len(aOpers), "A falha não deve incluir nem substituir a operação original.")
+    If Len(aOpers) >= 1
+        assertEquals("Retorna a saudação", aOpers[1]:getSummary(), "A operação original deve permanecer inalterada.")
+    EndIf
+
+    oPost := OApiOper():new("POST", "Cria uma saudação", "Cria uma nova saudação.")
+    oPostRsp := OApiResp():new("201", "Saudação criada com sucesso.")
+    oPost:addResp(oPostRsp)
+    oPath:addOper(oPost)
+    aOpers := oPath:getOpers()
+
+    assertEquals(2, Len(aOpers), "O path deve continuar utilizável após a inclusão rejeitada.")
+    If Len(aOpers) >= 2
+        assertEquals("post", aOpers[2]:getMethod(), "Uma nova operação válida deve ser aceita após a falha.")
+    EndIf
+
+    assertEquals(0, Len(oPath:validate()), "Path com operações válidas não deve gerar pendências.")
+
+    oPendP := OApiPath():new("/api/v1/pending")
+    oPendOp := OApiOper():new("POST", "Operação pendente", "Operação sem resposta.")
+    oPendP:addOper(oPendOp)
+    aPPend := oPendP:validate()
+
+    assertEquals(1, Len(aPPend), "Path com operação incompleta deve agregar uma pendência.")
+    If Len(aPPend) >= 1
+        assertEquals("Path /api/v1/pending: Operação post sem respostas.", aPPend[1], "A pendência deve identificar o path e o verbo.")
     EndIf
 
 Return .T.
