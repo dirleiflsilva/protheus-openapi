@@ -2,6 +2,7 @@ $ErrorActionPreference = "Stop"
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $fixturePath = Join-Path $PSScriptRoot "custom.openapi.core.test.tlpp"
 $infoPath = Join-Path $repoRoot "src\core\custom.openapi.info.tlpp"
+$respPath = Join-Path $repoRoot "src\core\custom.openapi.response.tlpp"
 
 function Get-Cp1252Content {
     param(
@@ -196,6 +197,95 @@ foreach ($methodName in @("new", "getTitle", "getDesc", "getVer", "validate")) {
     Assert-Match -Content $infoValidation `
         -Pattern "(?im)^[\t ]*method[\t ]+$methodName[\t ]*\([^\r\n]*\)[^\r\n]*class[\t ]+OApiInfo\b" `
         -Message "Implementação OApiInfo::$methodName ausente."
+}
+
+if (-not (Test-Path -LiteralPath $respPath -PathType Leaf)) {
+    throw "Fonte OApiResp não encontrado: $respPath"
+}
+
+$respContent = Get-Cp1252Content -Path $respPath
+$respIncludes = [regex]::Matches(
+    $respContent,
+    '(?im)^[\t ]*#include[\t ]+["''](?<name>[^"'']+)["''][\t ]*\r?$'
+)
+$respExpectedIncludes = @("tlpp-core.th", "totvs.ch")
+
+if ($respIncludes.Count -lt $respExpectedIncludes.Count) {
+    throw "Includes obrigatórios ausentes no fonte OApiResp."
+}
+
+for ($index = 0; $index -lt $respExpectedIncludes.Count; $index++) {
+    if ($respIncludes[$index].Groups["name"].Value -cne $respExpectedIncludes[$index]) {
+        throw "Ordem de includes inválida no OApiResp: esperado '$($respExpectedIncludes[$index])' na posição $($index + 1)."
+    }
+}
+
+Assert-Match -Content $respContent `
+    -Pattern '(?m)^[\t ]*namespace[\t ]+custom\.openapi\.core[\t ]*\r?$' `
+    -Message "Namespace custom.openapi.core ausente no OApiResp."
+Assert-Match -Content $respContent `
+    -Pattern '(?im)^[\t ]*class[\t ]+OApiResp\b' `
+    -Message "Classe OApiResp ausente."
+
+$respDocs = @{}
+
+foreach ($methodName in @("new", "getCode", "getDesc", "validate")) {
+    $methodMatch = [regex]::Match(
+        $respContent,
+        "(?is)(?<doc>/\*/\{Protheus\.doc\}[\t ]+OApiResp::$methodName\b.*?\*/)[\t \r\n]*method[\t ]+$methodName[\t ]*\("
+    )
+
+    if (-not $methodMatch.Success) {
+        throw "ProtheusDOC obrigatório ausente para OApiResp::$methodName."
+    }
+
+    $respDocs[$methodName] = $methodMatch.Groups["doc"].Value
+
+    foreach ($pattern in @(
+        '(?im)^[\t ]*@type[\t ]+method\b',
+        '(?im)^[\t ]*@author[\t ]+Dirlei Silva\b',
+        '(?im)^[\t ]*@since[\t ]+2026-08-24\b'
+    )) {
+        Assert-Match -Content $respDocs[$methodName] `
+            -Pattern $pattern `
+            -Message "ProtheusDOC incompleto para OApiResp::${methodName}: $pattern"
+    }
+}
+
+foreach ($pattern in @(
+    '(?im)^[\t ]*@param[\t ]+cCode,[\t ]+character,[\t ]+[^\r\n]+$',
+    '(?im)^[\t ]*@param[\t ]+cDesc,[\t ]+character,[\t ]+[^\r\n]+$',
+    '(?im)^[\t ]*@return[\t ]+object,[\t ]+[^\r\n]+$'
+)) {
+    Assert-Match -Content $respDocs["new"] `
+        -Pattern $pattern `
+        -Message "ProtheusDOC incompleto para OApiResp::new: $pattern"
+}
+
+foreach ($methodName in @("getCode", "getDesc")) {
+    Assert-Match -Content $respDocs[$methodName] `
+        -Pattern '(?im)^[\t ]*@return[\t ]+character,[\t ]+[^\r\n]+$' `
+        -Message "@return character ausente para OApiResp::$methodName."
+}
+
+Assert-Match -Content $respDocs["validate"] `
+    -Pattern '(?im)^[\t ]*@return[\t ]+array,[\t ]+[^\r\n]+$' `
+    -Message "@return array ausente para OApiResp::validate."
+
+Assert-Match -Content $respContent `
+    -Pattern '(?is)/\*/\{Protheus\.doc\}[\t ]+OApiResp\b.*?@type[\t ]+class\b.*?@author[\t ]+Dirlei Silva\b.*?@since[\t ]+2026-08-24\b.*?\*/[\t \r\n]*class[\t ]+OApiResp\b' `
+    -Message "ProtheusDOC obrigatório ausente para a classe OApiResp."
+
+$respValidation = [regex]::Replace($respContent, '(?s)/\*.*?\*/', '')
+$respValidation = [regex]::Replace($respValidation, '(?m)//[^\r\n]*', '')
+
+foreach ($methodName in @("new", "getCode", "getDesc", "validate")) {
+    Assert-Match -Content $respValidation `
+        -Pattern "(?im)^[\t ]*public[\t ]+method[\t ]+$methodName[\t ]*\(" `
+        -Message "Método público OApiResp::$methodName ausente na declaração da classe."
+    Assert-Match -Content $respValidation `
+        -Pattern "(?im)^[\t ]*method[\t ]+$methodName[\t ]*\([^\r\n]*\)[^\r\n]*class[\t ]+OApiResp\b" `
+        -Message "Implementação OApiResp::$methodName ausente."
 }
 
 $forbidden = @{

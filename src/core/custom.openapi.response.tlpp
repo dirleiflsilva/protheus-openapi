@@ -1,0 +1,77 @@
+#include "tlpp-core.th"
+#include "totvs.ch"
+
+namespace custom.openapi.core
+
+/*/{Protheus.doc} OApiResp
+    Representa uma resposta HTTP mínima no documento OpenAPI.
+    @type class
+    @author Dirlei Silva
+    @since 2026-08-24
+*/
+class OApiResp
+    private data cCode as character
+    private data cDesc as character
+
+    public method new(cCode as character, cDesc as character) as object
+    public method getCode() as character
+    public method getDesc() as character
+    public method validate() as array
+endclass
+
+/*/{Protheus.doc} OApiResp::new
+    Inicializa a resposta sem alterar os valores recebidos.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-24
+    @param cCode, character, Código HTTP da resposta
+    @param cDesc, character, Descrição da resposta
+    @return object, Instância inicializada de OApiResp
+*/
+method new(cCode as character, cDesc as character) as object class OApiResp
+
+    ::cCode := cCode
+    ::cDesc := cDesc
+
+return self
+
+/*/{Protheus.doc} OApiResp::getCode
+    Retorna o código HTTP da resposta.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-24
+    @return character, Código HTTP informado para a resposta
+*/
+method getCode() as character class OApiResp
+return ::cCode
+
+/*/{Protheus.doc} OApiResp::getDesc
+    Retorna a descrição da resposta.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-24
+    @return character, Descrição informada para a resposta
+*/
+method getDesc() as character class OApiResp
+return ::cDesc
+
+/*/{Protheus.doc} OApiResp::validate
+    Retorna todas as pendências conhecidas da resposta.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-24
+    @return array, Pendências encontradas para código e descrição
+*/
+method validate() as array class OApiResp
+
+    Local aPend := {} as Array
+
+    If Empty(::cCode)
+        AAdd(aPend, "Código da resposta é obrigatório.")
+    EndIf
+
+    If Empty(::cDesc)
+        AAdd(aPend, "Descrição da resposta é obrigatória.")
+    EndIf
+
+return aPend

@@ -8,7 +8,7 @@ using namespace tlpp.probat
 using namespace custom.openapi.core
 
 /*/{Protheus.doc}
-    Valida o harness mínimo do PROBAT e o contrato das informações da API.
+    Valida o harness mínimo do PROBAT e os contratos iniciais do núcleo OpenAPI.
 
     @type function
     @author Dirlei Silva
@@ -22,8 +22,12 @@ User Function OApiTst() as Logical
 
     Local oInfo   as Object
     Local oInv    as Object
+    Local oResp   as Object
+    Local oRInv   as Object
     Local aValid := {} as Array
     Local aPend  := {} as Array
+    Local aRValid := {} as Array
+    Local aRPend := {} as Array
 
     assertEquals(.T., .T., "O harness PROBAT deve aceitar valores iguais.")
 
@@ -48,6 +52,24 @@ User Function OApiTst() as Logical
     If Len(aPend) >= 2
         assertEquals("Título da API é obrigatório.", aPend[1], "A pendência do título deve ocupar a primeira posição.")
         assertEquals("Versão da API é obrigatória.", aPend[2], "A pendência da versão deve ocupar a segunda posição.")
+    EndIf
+
+    oResp := OApiResp():new("200", "Resposta retornada com sucesso.")
+
+    assertEquals("200", oResp:getCode(), "O código da resposta deve ser preservado.")
+    assertEquals("Resposta retornada com sucesso.", oResp:getDesc(), "A descrição da resposta deve ser preservada.")
+
+    aRValid := oResp:validate()
+    assertEquals(0, Len(aRValid), "Resposta válida não deve gerar pendências.")
+
+    oRInv  := OApiResp():new("", "")
+    aRPend := oRInv:validate()
+
+    assertEquals(2, Len(aRPend), "Código e descrição vazios devem gerar duas pendências.")
+
+    If Len(aRPend) >= 2
+        assertEquals("Código da resposta é obrigatório.", aRPend[1], "A pendência do código deve ocupar a primeira posição.")
+        assertEquals("Descrição da resposta é obrigatória.", aRPend[2], "A pendência da descrição deve ocupar a segunda posição.")
     EndIf
 
 Return .T.
