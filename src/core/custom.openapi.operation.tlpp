@@ -120,7 +120,7 @@ method addResp(oResp as object) as object class OApiOper
 return self
 
 /*/{Protheus.doc} OApiOper::validate
-    Retorna a pendência conhecida quando a operação não possui respostas.
+    Retorna as pendências da operação e de todas as suas respostas.
     @type method
     @author Dirlei Silva
     @since 2026-08-25
@@ -128,10 +128,27 @@ return self
 */
 method validate() as array class OApiOper
 
-    Local aPend := {} as Array
+    Local aPend  := {} as Array
+    Local aRPend := {} as Array
+    Local cCode  := "" as Character
+    Local nResp  := 0 as Numeric
+    Local nPend  := 0 as Numeric
 
     If Empty(::aResps)
         AAdd(aPend, "Operação " + ::cMethod + " sem respostas.")
+    Else
+        For nResp := 1 To Len(::aResps)
+            cCode  := ::aResps[nResp]:getCode()
+            aRPend := ::aResps[nResp]:validate()
+
+            If Empty(cCode)
+                cCode := "<vazio>"
+            EndIf
+
+            For nPend := 1 To Len(aRPend)
+                AAdd(aPend, "Operação " + ::cMethod + ", resposta " + cCode + ": " + aRPend[nPend])
+            Next nPend
+        Next nResp
     EndIf
 
 return aPend

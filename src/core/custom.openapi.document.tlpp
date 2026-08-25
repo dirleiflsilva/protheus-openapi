@@ -1,0 +1,128 @@
+#include "tlpp-core.th"
+#include "totvs.ch"
+
+namespace custom.openapi.core
+
+/*/{Protheus.doc} OApiDoc
+    Representa um documento OpenAPI e agrega suas pendências de validação.
+    @type class
+    @author Dirlei Silva
+    @since 2026-08-25
+*/
+class OApiDoc
+    private data cOpenApi as character
+    private data oInfo    as object
+    private data aPaths   as array
+
+    public method new(oInfo as object) as object
+    public method getOpenApi() as character
+    public method getInfo() as object
+    public method getPaths() as array
+    public method addPath(oPath as object) as object
+    public method validate() as array
+endclass
+
+/*/{Protheus.doc} OApiDoc::new
+    Inicializa o documento com a versão OpenAPI 3.0.3 e as informações recebidas.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-25
+    @param oInfo, object, Informações básicas da API
+    @return object, Instância inicializada de OApiDoc
+*/
+method new(oInfo as object) as object class OApiDoc
+
+    ::cOpenApi := "3.0.3"
+    ::oInfo    := oInfo
+    ::aPaths   := {}
+
+return self
+
+/*/{Protheus.doc} OApiDoc::getOpenApi
+    Retorna a versão OpenAPI adotada pelo documento.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-25
+    @return character, Versão OpenAPI fixa do documento
+*/
+method getOpenApi() as character class OApiDoc
+return ::cOpenApi
+
+/*/{Protheus.doc} OApiDoc::getInfo
+    Retorna as informações básicas preservadas no documento.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-25
+    @return object, Instância de informações da API
+*/
+method getInfo() as object class OApiDoc
+return ::oInfo
+
+/*/{Protheus.doc} OApiDoc::getPaths
+    Retorna uma cópia rasa dos paths do documento.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-25
+    @return array, Cópia dos paths incluídos no documento
+*/
+method getPaths() as array class OApiDoc
+return AClone(::aPaths)
+
+/*/{Protheus.doc} OApiDoc::addPath
+    Inclui um path quando seu valor ainda não pertence ao documento OpenAPI.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-25
+    @param oPath, object, Path OpenAPI que será incluído
+    @return object, Própria instância de OApiDoc
+*/
+method addPath(oPath as object) as object class OApiDoc
+
+    Local cPath := oPath:getPath() as Character
+    Local nPath := 0 as Numeric
+
+    For nPath := 1 To Len(::aPaths)
+        If ::aPaths[nPath]:getPath() == cPath
+            UserException("Path duplicado no documento: " + cPath + ".")
+        EndIf
+    Next nPath
+
+    AAdd(::aPaths, oPath)
+
+return self
+
+/*/{Protheus.doc} OApiDoc::validate
+    Retorna todas as pendências das informações e dos paths do documento.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-25
+    @return array, Pendências encontradas no documento OpenAPI
+*/
+method validate() as array class OApiDoc
+
+    Local aPend  := {} as Array
+    Local aIPend := {} as Array
+    Local aPPend := {} as Array
+    Local nInfo  := 0 as Numeric
+    Local nPath  := 0 as Numeric
+    Local nPend  := 0 as Numeric
+
+    aIPend := ::oInfo:validate()
+
+    For nInfo := 1 To Len(aIPend)
+        AAdd(aPend, aIPend[nInfo])
+    Next nInfo
+
+    If Empty(::aPaths)
+        AAdd(aPend, "Documento OpenAPI deve possuir ao menos um path.")
+    Else
+        For nPath := 1 To Len(::aPaths)
+            aPPend := ::aPaths[nPath]:validate()
+
+            For nPend := 1 To Len(aPPend)
+                AAdd(aPend, aPPend[nPend])
+            Next nPend
+        Next nPath
+    EndIf
+
+return aPend

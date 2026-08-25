@@ -36,6 +36,19 @@ User Function OApiTst() as Logical
     Local oPostRsp as Object
     Local oPendP   as Object
     Local oPendOp  as Object
+    Local oDoc     as Object
+    Local oBadDoc  as Object
+    Local oBadInfo as Object
+    Local oPendDoc as Object
+    Local oDupPath as Object
+    Local oUniPath as Object
+    Local oUniOper as Object
+    Local oUniResp as Object
+    Local oInvResp as Object
+    Local oInvOper as Object
+    Local oInvPath as Object
+    Local oInvDoc  as Object
+    Local oMultiDoc as Object
     Local aValid  := {} as Array
     Local aPend   := {} as Array
     Local aRValid := {} as Array
@@ -44,15 +57,23 @@ User Function OApiTst() as Logical
     Local aOPend  := {} as Array
     Local aOpers  := {} as Array
     Local aPPend  := {} as Array
+    Local aPaths  := {} as Array
+    Local aDValid := {} as Array
+    Local aDInv   := {} as Array
+    Local aDPend  := {} as Array
+    Local aInvPend := {} as Array
+    Local aMulti   := {} as Array
     Local aVerbs  := {{"GET", "get"}, {"PUT", "put"}, {"POST", "post"}, {"DELETE", "delete"}, {"OPTIONS", "options"}, {"HEAD", "head"}, {"PATCH", "patch"}, {"TRACE", "trace"}} as Array
     Local cBadVerb := "" as Character
     Local cDupErr  := "" as Character
     Local cPathErr := "" as Character
     Local cDupOper := "" as Character
+    Local cDupPath := "" as Character
     Local lBadVerb := .F. as Logical
     Local lDupErr  := .F. as Logical
     Local lPathErr := .F. as Logical
     Local lDupOper := .F. as Logical
+    Local lDupPath := .F. as Logical
     Local nVerb    := 0 as Numeric
 
     assertEquals(.T., .T., "O harness PROBAT deve aceitar valores iguais.")
@@ -243,6 +264,110 @@ User Function OApiTst() as Logical
     assertEquals(1, Len(aPPend), "Path com operação incompleta deve agregar uma pendência.")
     If Len(aPPend) >= 1
         assertEquals("Path /api/v1/pending: Operação post sem respostas.", aPPend[1], "A pendência deve identificar o path e o verbo.")
+    EndIf
+
+    oDoc := OApiDoc():new(oInfo)
+
+    assertEquals("3.0.3", oDoc:getOpenApi(), "A versão OpenAPI deve ser fixa em 3.0.3.")
+    assertEquals("Hello World API", oDoc:getInfo():getTitle(), "As informações válidas devem ser preservadas no documento.")
+    assertEquals("1.0.0", oDoc:getInfo():getVer(), "A versão da API deve ser preservada no documento.")
+
+    oDoc:addPath(oPath)
+    aPaths := oDoc:getPaths()
+
+    assertEquals(1, Len(aPaths), "O path Hello World completo deve ser incluído no documento.")
+    If Len(aPaths) >= 1
+        assertEquals("/api/v1/hello", aPaths[1]:getPath(), "O path incluído deve ser preservado.")
+    EndIf
+
+    AAdd(aPaths, oPendP)
+    assertEquals(2, Len(aPaths), "O array retornado deve aceitar alteração externa isolada.")
+
+    aPaths := oDoc:getPaths()
+    assertEquals(1, Len(aPaths), "A alteração externa não deve modificar os paths internos.")
+    If Len(aPaths) >= 1
+        assertEquals("/api/v1/hello", aPaths[1]:getPath(), "Uma nova consulta deve preservar somente o path interno.")
+    EndIf
+
+    oDupPath := OApiPath():new("/api/v1/hello")
+
+    Try
+        oDoc:addPath(oDupPath)
+    Catch oError
+        lDupPath := .T.
+        cDupPath := oError:Description
+    EndTry
+
+    assertEquals(.T., lDupPath, "Path duplicado no documento deve falhar imediatamente.")
+    assertEquals("Path duplicado no documento: /api/v1/hello.", cDupPath, "O erro deve identificar o path duplicado.")
+
+    aPaths := oDoc:getPaths()
+    assertEquals(1, Len(aPaths), "A falha não deve incluir nem substituir o path original.")
+    If Len(aPaths) >= 1
+        assertEquals("/api/v1/hello", aPaths[1]:getPath(), "O path original deve permanecer inalterado.")
+    EndIf
+
+    oUniPath := OApiPath():new("/api/v1/unique")
+    oUniOper := OApiOper():new("GET", "Consulta única", "Consulta um recurso único.")
+    oUniResp := OApiResp():new("200", "Recurso único retornado com sucesso.")
+    oUniOper:addResp(oUniResp)
+    oUniPath:addOper(oUniOper)
+    oDoc:addPath(oUniPath)
+    aPaths := oDoc:getPaths()
+
+    assertEquals(2, Len(aPaths), "O documento deve continuar utilizável após a inclusão rejeitada.")
+    If Len(aPaths) >= 2
+        assertEquals("/api/v1/unique", aPaths[2]:getPath(), "Um path único deve ser aceito após a falha.")
+    EndIf
+
+    aDValid := oDoc:validate()
+    assertEquals(0, Len(aDValid), "Documento válido não deve gerar pendências.")
+
+    oBadInfo := OApiInfo():new("", "", "")
+    oBadDoc := OApiDoc():new(oBadInfo)
+    aDInv := oBadDoc:validate()
+
+    assertEquals(3, Len(aDInv), "Informações inválidas e ausência de paths devem gerar três pendências.")
+    If Len(aDInv) >= 3
+        assertEquals("Título da API é obrigatório.", aDInv[1], "A pendência do título deve ocupar a primeira posição.")
+        assertEquals("Versão da API é obrigatória.", aDInv[2], "A pendência da versão deve ocupar a segunda posição.")
+        assertEquals("Documento OpenAPI deve possuir ao menos um path.", aDInv[3], "A ausência de paths deve ocupar a terceira posição.")
+    EndIf
+
+    oPendDoc := OApiDoc():new(oInfo)
+    oPendDoc:addPath(oPendP)
+    aDPend := oPendDoc:validate()
+
+    assertEquals(1, Len(aDPend), "Documento com path incompleto deve agregar uma pendência.")
+    If Len(aDPend) >= 1
+        assertEquals("Path /api/v1/pending: Operação post sem respostas.", aDPend[1], "A pendência do path deve manter o contexto no documento.")
+    EndIf
+
+    oInvResp := OApiResp():new("", "")
+    oInvOper := OApiOper():new("GET", "Resposta inválida", "Valida pendências transitivas.")
+    oInvOper:addResp(oInvResp)
+    oInvPath := OApiPath():new("/api/v1/invalid")
+    oInvPath:addOper(oInvOper)
+    oInvDoc := OApiDoc():new(oInfo)
+    oInvDoc:addPath(oInvPath)
+    aInvPend := oInvDoc:validate()
+
+    assertEquals(2, Len(aInvPend), "Documento deve agregar as duas pendências da resposta inválida.")
+    If Len(aInvPend) >= 2
+        assertEquals("Path /api/v1/invalid: Operação get, resposta <vazio>: Código da resposta é obrigatório.", aInvPend[1], "A primeira pendência deve manter o contexto completo da resposta.")
+        assertEquals("Path /api/v1/invalid: Operação get, resposta <vazio>: Descrição da resposta é obrigatória.", aInvPend[2], "A segunda pendência deve manter o contexto completo da resposta.")
+    EndIf
+
+    oMultiDoc := OApiDoc():new(oInfo)
+    oMultiDoc:addPath(oPendP)
+    oMultiDoc:addPath(oInvPath)
+    aMulti := oMultiDoc:validate()
+
+    assertEquals(3, Len(aMulti), "Documento deve agregar pendências de todos os paths em ordem.")
+    If Len(aMulti) >= 3
+        assertEquals("Path /api/v1/pending: Operação post sem respostas.", aMulti[1], "A pendência do primeiro path deve ocupar a primeira posição.")
+        assertEquals("Path /api/v1/invalid: Operação get, resposta <vazio>: Código da resposta é obrigatório.", aMulti[2], "A primeira pendência do segundo path deve ocupar a segunda posição.")
+        assertEquals("Path /api/v1/invalid: Operação get, resposta <vazio>: Descrição da resposta é obrigatória.", aMulti[3], "A segunda pendência do segundo path deve ocupar a terceira posição.")
     EndIf
 
 Return .T.
