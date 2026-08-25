@@ -1,0 +1,61 @@
+#include "tlpp-core.th"
+#include "tlpp-rest.th"
+#include "totvs.ch"
+
+using namespace custom.openapi.core
+
+/*/{Protheus.doc} OApiCore
+    Publica o documento OpenAPI do exemplo Hello World gerado pelo núcleo TL++.
+    @type function
+    @author Dirlei Silva
+    @since 2026-08-25
+    @return logical, Resultado do envio da resposta REST
+*/
+@Get(;
+    endpoint="/api/v1/openapi/core",;
+    title="Documento OpenAPI do núcleo",;
+    description="Retorna o documento OpenAPI gerado pelo núcleo TL++.",;
+    responses='[{"statusCode":200,"description":"Documento OpenAPI retornado com sucesso."},{"statusCode":500,"description":"Falha ao gerar o documento OpenAPI."}]';
+)
+User Function OApiCore() as Logical
+
+    Local oInfo  as Object
+    Local oResp  as Object
+    Local oOper  as Object
+    Local oPath  as Object
+    Local oDoc   as Object
+    Local oJson  as Object
+    Local jError as Json
+    Local cResp := "" as Character
+
+    Try
+        oInfo := OApiInfo():new(;
+            "Hello World API",;
+            "API de demonstração do núcleo OpenAPI.",;
+            "1.0.0";
+        )
+        oResp := OApiResp():new("200", "Hello World retornado com sucesso.")
+        oOper := OApiOper():new(;
+            "GET",;
+            "Hello World",;
+            "Retorna uma mensagem Hello World gerada por um endpoint TL++.";
+        )
+        oOper:addResp(oResp)
+        oPath := OApiPath():new("/api/v1/hello")
+        oPath:addOper(oOper)
+        oDoc := OApiDoc():new(oInfo)
+        oDoc:addPath(oPath)
+        oJson := OApiJson():new()
+        cResp := oJson:toJson(oDoc)
+        oRest:SetStatusCode(200)
+    Catch oError
+        jError := JsonObject():New()
+        jError["success"] := .F.
+        jError["message"] := "Falha ao gerar o documento OpenAPI."
+        cResp := jError:ToJson()
+        oRest:SetStatusCode(500)
+    EndTry
+
+    oRest:SetKeyHeaderResponse("Content-Type", "application/json")
+
+Return oRest:SetResponse(cResp)

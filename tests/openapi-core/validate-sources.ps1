@@ -7,6 +7,7 @@ $operPath = Join-Path $repoRoot "src\core\custom.openapi.operation.tlpp"
 $pathPath = Join-Path $repoRoot "src\core\custom.openapi.path.tlpp"
 $docPath = Join-Path $repoRoot "src\core\custom.openapi.document.tlpp"
 $jsonPath = Join-Path $repoRoot "src\core\custom.openapi.json.tlpp"
+$apiPath = Join-Path $repoRoot "examples\openapi-core\custom.openapi.core.api.tlpp"
 
 function Get-Cp1252Content {
     param(
@@ -707,6 +708,107 @@ if ($validateMatch.Index -gt $newMatch.Index) {
 
 if (-not $serializeMatch.Success -or $serializeMatch.Index -lt $newMatch.Index) {
     throw "ToJson() ausente após a criação do objeto JSON."
+}
+
+if (-not (Test-Path -LiteralPath $apiPath -PathType Leaf)) {
+    throw "Fonte do endpoint OApiCore não encontrado: $apiPath"
+}
+
+$apiContent = Get-Cp1252Content -Path $apiPath
+$apiIncludes = [regex]::Matches(
+    $apiContent,
+    '(?im)^[\t ]*#include[\t ]+["''](?<name>[^"'']+)["''][\t ]*\r?$'
+)
+$apiExpectedIncludes = @("tlpp-core.th", "tlpp-rest.th", "totvs.ch")
+
+if ($apiIncludes.Count -lt $apiExpectedIncludes.Count) {
+    throw "Includes obrigatórios ausentes no endpoint OApiCore."
+}
+
+for ($index = 0; $index -lt $apiExpectedIncludes.Count; $index++) {
+    if ($apiIncludes[$index].Groups["name"].Value -cne $apiExpectedIncludes[$index]) {
+        throw "Ordem de includes inválida no OApiCore: esperado '$($apiExpectedIncludes[$index])' na posição $($index + 1)."
+    }
+}
+
+Assert-Match -Content $apiContent `
+    -Pattern '(?m)^[\t ]*using[\t ]+namespace[\t ]+custom\.openapi\.core[\t ]*\r?$' `
+    -Message "Importação do namespace custom.openapi.core ausente no OApiCore."
+
+$apiDecl = [regex]::Match(
+    $apiContent,
+    '(?ims)(?<doc>/\*/\{Protheus\.doc\}.*?\*/)[\t \r\n]*(?<annotation>@Get[\t ]*\([\s\S]*?^[\t ]*\))[\t \r\n]*User[\t ]+Function[\t ]+OApiCore[\t ]*\([\t ]*\)[\t ]+as[\t ]+Logical\b'
+)
+
+if (-not $apiDecl.Success) {
+    throw "Sequência ProtheusDOC, @Get e User Function OApiCore() as Logical ausente."
+}
+
+foreach ($pattern in @(
+    '(?im)^[\t ]*@type[\t ]+function\b',
+    '(?im)^[\t ]*@author[\t ]+Dirlei Silva\b',
+    '(?im)^[\t ]*@since[\t ]+2026-08-25\b',
+    '(?im)^[\t ]*@return[\t ]+logical,[\t ]+[^\r\n]+$'
+)) {
+    Assert-Match -Content $apiDecl.Groups["doc"].Value `
+        -Pattern $pattern `
+        -Message "ProtheusDOC incompleto no endpoint OApiCore: $pattern"
+}
+
+$apiAnnotation = $apiDecl.Groups["annotation"].Value
+
+foreach ($pattern in @(
+    '(?i)\bendpoint[\t ]*=[\t ]*"/api/v1/openapi/core"',
+    '(?i)\btitle[\t ]*=[\t ]*"[^"\r\n]+"',
+    '(?i)\bdescription[\t ]*=[\t ]*"[^"\r\n]+"',
+    '(?i)"statusCode"[\t ]*:[\t ]*200',
+    '(?i)"statusCode"[\t ]*:[\t ]*500'
+)) {
+    Assert-Match -Content $apiAnnotation `
+        -Pattern $pattern `
+        -Message "Metadado @Get obrigatório ausente no OApiCore: $pattern"
+}
+
+$apiValidation = [regex]::Replace($apiContent, '(?s)/\*.*?\*/', '')
+$apiValidation = [regex]::Replace($apiValidation, '(?m)//[^\r\n]*', '')
+
+foreach ($className in @("OApiInfo", "OApiResp", "OApiOper", "OApiPath", "OApiDoc", "OApiJson")) {
+    Assert-Match -Content $apiValidation `
+        -Pattern "(?i)\b$className[\t ]*\([\t ]*\)[\t ]*:[\t ]*new[\t ]*\(" `
+        -Message "Uso da classe $className ausente no endpoint OApiCore."
+}
+
+foreach ($pattern in @(
+    '(?i)OApiResp[\t ]*\([\t ]*\)[\t ]*:[\t ]*new[\t ]*\([\t ]*"200"',
+    '(?i)OApiOper[\t ]*\([\t ]*\)[\t ]*:[\t ]*new[\t ]*\([\s\S]*?"GET"',
+    '(?i)OApiPath[\t ]*\([\t ]*\)[\t ]*:[\t ]*new[\t ]*\([\t ]*"/api/v1/hello"',
+    '(?i):[\t ]*toJson[\t ]*\(',
+    '(?im)^[\t ]*Try[\t ]*\r?$',
+    '(?im)^[\t ]*Catch[\t ]+oError[\t ]*\r?$',
+    '(?im)^[\t ]*EndTry[\t ]*\r?$',
+    '(?i)oRest[\t ]*:[\t ]*SetStatusCode[\t ]*\([\t ]*200[\t ]*\)',
+    '(?i)oRest[\t ]*:[\t ]*SetStatusCode[\t ]*\([\t ]*500[\t ]*\)',
+    '(?i)oRest[\t ]*:[\t ]*SetKeyHeaderResponse[\t ]*\([\t ]*"Content-Type"[\t ]*,[\t ]*"application/json"[\t ]*\)',
+    '(?i)oRest[\t ]*:[\t ]*SetResponse[\t ]*\(',
+    '(?i)\[[\t ]*"success"[\t ]*\][\t ]*:=[\t ]*\.F\.',
+    '(?i)\[[\t ]*"message"[\t ]*\][\t ]*:=[\t ]*"Falha ao gerar o documento OpenAPI\."'
+)) {
+    Assert-Match -Content $apiValidation `
+        -Pattern $pattern `
+        -Message "Contrato REST obrigatório ausente no OApiCore: $pattern"
+}
+
+$apiForbidden = @{
+    '(?i)oError[\t ]*:[\t ]*(Description|ErrorStack|Stack)' = "Detalhes internos do erro não podem ser enviados ao cliente."
+    '(?i)\b(RpcSetEnv|RpcSetType|ConOut|IIF)[\t ]*\(' = "API proibida no endpoint OApiCore."
+    '(?i)\b(password|passwd|client_?secret|api_?key)[\t ]*:?=' = "Credencial não pode ser declarada no endpoint OApiCore."
+    '(?i)\bAuthorization\b' = "Credencial ou cabeçalho Authorization não deve ser hardcoded no endpoint OApiCore."
+}
+
+foreach ($entry in $apiForbidden.GetEnumerator()) {
+    if ($apiValidation -match $entry.Key) {
+        throw "$($entry.Value) Fonte: $apiPath"
+    }
 }
 
 $forbidden = @{
