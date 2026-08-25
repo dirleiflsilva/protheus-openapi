@@ -1,0 +1,137 @@
+#include "tlpp-core.th"
+#include "totvs.ch"
+
+namespace custom.openapi.core
+
+/*/{Protheus.doc} OApiOper
+    Representa uma operação HTTP no documento OpenAPI.
+    @type class
+    @author Dirlei Silva
+    @since 2026-08-25
+*/
+class OApiOper
+    private data cMethod  as character
+    private data cSummary as character
+    private data cDesc    as character
+    private data aResps   as array
+
+    public method new(cMethod as character, cSummary as character, cDesc as character) as object
+    public method getMethod() as character
+    public method getSummary() as character
+    public method getDesc() as character
+    public method getResps() as array
+    public method addResp(oResp as object) as object
+    public method validate() as array
+endclass
+
+/*/{Protheus.doc} OApiOper::new
+    Inicializa a operação e normaliza o verbo HTTP para minúsculas.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-25
+    @param cMethod, character, Verbo HTTP da operação
+    @param cSummary, character, Resumo da operação
+    @param cDesc, character, Descrição da operação
+    @return object, Instância inicializada de OApiOper
+*/
+method new(cMethod as character, cSummary as character, cDesc as character) as object class OApiOper
+
+    Local cVerb := Lower(cMethod) as Character
+
+    If cVerb != "get" .And. ;
+       cVerb != "put" .And. ;
+       cVerb != "post" .And. ;
+       cVerb != "delete" .And. ;
+       cVerb != "options" .And. ;
+       cVerb != "head" .And. ;
+       cVerb != "patch" .And. ;
+       cVerb != "trace"
+        UserException("Verbo OpenAPI não suportado: " + cMethod + ".")
+    EndIf
+
+    ::cMethod  := cVerb
+    ::cSummary := cSummary
+    ::cDesc    := cDesc
+    ::aResps   := {}
+
+return self
+
+/*/{Protheus.doc} OApiOper::getMethod
+    Retorna o verbo HTTP normalizado da operação.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-25
+    @return character, Verbo HTTP normalizado
+*/
+method getMethod() as character class OApiOper
+return ::cMethod
+
+/*/{Protheus.doc} OApiOper::getSummary
+    Retorna o resumo da operação.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-25
+    @return character, Resumo informado para a operação
+*/
+method getSummary() as character class OApiOper
+return ::cSummary
+
+/*/{Protheus.doc} OApiOper::getDesc
+    Retorna a descrição da operação.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-25
+    @return character, Descrição informada para a operação
+*/
+method getDesc() as character class OApiOper
+return ::cDesc
+
+/*/{Protheus.doc} OApiOper::getResps
+    Retorna uma cópia rasa das respostas da operação.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-25
+    @return array, Cópia das respostas incluídas na operação
+*/
+method getResps() as array class OApiOper
+return AClone(::aResps)
+
+/*/{Protheus.doc} OApiOper::addResp
+    Inclui uma resposta quando o código ainda não pertence à operação.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-25
+    @param oResp, object, Resposta OpenAPI que será incluída
+    @return object, Própria instância de OApiOper
+*/
+method addResp(oResp as object) as object class OApiOper
+
+    Local cCode := oResp:getCode() as Character
+    Local nResp := 0 as Numeric
+
+    For nResp := 1 To Len(::aResps)
+        If ::aResps[nResp]:getCode() == cCode
+            UserException("Resposta duplicada: " + cCode + ".")
+        EndIf
+    Next nResp
+
+    AAdd(::aResps, oResp)
+
+return self
+
+/*/{Protheus.doc} OApiOper::validate
+    Retorna a pendência conhecida quando a operação não possui respostas.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-25
+    @return array, Pendências encontradas para a operação
+*/
+method validate() as array class OApiOper
+
+    Local aPend := {} as Array
+
+    If Empty(::aResps)
+        AAdd(aPend, "Operação " + ::cMethod + " sem respostas.")
+    EndIf
+
+return aPend

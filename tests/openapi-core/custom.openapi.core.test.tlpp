@@ -20,14 +20,27 @@ using namespace custom.openapi.core
 @TestFixture()
 User Function OApiTst() as Logical
 
-    Local oInfo   as Object
-    Local oInv    as Object
-    Local oResp   as Object
-    Local oRInv   as Object
-    Local aValid := {} as Array
-    Local aPend  := {} as Array
+    Local oInfo    as Object
+    Local oInv     as Object
+    Local oResp    as Object
+    Local oRInv    as Object
+    Local oOper    as Object
+    Local oNoResp  as Object
+    Local oDupResp as Object
+    Local oNextRsp as Object
+    Local oVerb    as Object
+    Local aValid  := {} as Array
+    Local aPend   := {} as Array
     Local aRValid := {} as Array
-    Local aRPend := {} as Array
+    Local aRPend  := {} as Array
+    Local aResps  := {} as Array
+    Local aOPend  := {} as Array
+    Local aVerbs  := {{"GET", "get"}, {"PUT", "put"}, {"POST", "post"}, {"DELETE", "delete"}, {"OPTIONS", "options"}, {"HEAD", "head"}, {"PATCH", "patch"}, {"TRACE", "trace"}} as Array
+    Local cBadVerb := "" as Character
+    Local cDupErr  := "" as Character
+    Local lBadVerb := .F. as Logical
+    Local lDupErr  := .F. as Logical
+    Local nVerb    := 0 as Numeric
 
     assertEquals(.T., .T., "O harness PROBAT deve aceitar valores iguais.")
 
@@ -70,6 +83,85 @@ User Function OApiTst() as Logical
     If Len(aRPend) >= 2
         assertEquals("Código da resposta é obrigatório.", aRPend[1], "A pendência do código deve ocupar a primeira posição.")
         assertEquals("Descrição da resposta é obrigatória.", aRPend[2], "A pendência da descrição deve ocupar a segunda posição.")
+    EndIf
+
+    oOper := OApiOper():new(;
+        "GET",;
+        "Retorna a saudação",;
+        "Retorna a resposta Hello World.";
+    )
+
+    assertEquals("get", oOper:getMethod(), "O verbo suportado deve ser normalizado para minúsculas.")
+    assertEquals("Retorna a saudação", oOper:getSummary(), "O resumo da operação deve ser preservado.")
+    assertEquals("Retorna a resposta Hello World.", oOper:getDesc(), "A descrição da operação deve ser preservada.")
+
+    For nVerb := 1 To Len(aVerbs)
+        oVerb := OApiOper():new(aVerbs[nVerb][1], "Operação de teste", "Valida um verbo OpenAPI.")
+        assertEquals(aVerbs[nVerb][2], oVerb:getMethod(), "O verbo " + aVerbs[nVerb][1] + " deve ser aceito e normalizado.")
+    Next nVerb
+
+    oOper:addResp(oResp)
+    aResps := oOper:getResps()
+
+    assertEquals(1, Len(aResps), "A resposta 200 deve ser incluída na operação.")
+    If Len(aResps) >= 1
+        assertEquals("200", aResps[1]:getCode(), "O código da resposta incluída deve ser preservado.")
+        assertEquals("Resposta retornada com sucesso.", aResps[1]:getDesc(), "A resposta original deve ser preservada.")
+    EndIf
+    oNextRsp := OApiResp():new("201", "Recurso criado com sucesso.")
+    AAdd(aResps, oNextRsp)
+    assertEquals(2, Len(aResps), "O array retornado deve aceitar alteração externa isolada.")
+
+    aResps := oOper:getResps()
+    assertEquals(1, Len(aResps), "A alteração externa não deve modificar as respostas internas.")
+    If Len(aResps) >= 1
+        assertEquals("200", aResps[1]:getCode(), "Uma nova consulta deve preservar somente a resposta interna.")
+    EndIf
+
+    assertEquals(0, Len(oOper:validate()), "Operação com resposta válida não deve gerar pendências.")
+
+    oNoResp := OApiOper():new("POST", "Cria um recurso", "Cria um recurso de teste.")
+    aOPend := oNoResp:validate()
+
+    assertEquals(1, Len(aOPend), "Operação sem respostas deve gerar uma pendência.")
+    If Len(aOPend) >= 1
+        assertEquals("Operação post sem respostas.", aOPend[1], "A pendência deve identificar o verbo normalizado.")
+    EndIf
+
+    Try
+        oNoResp := OApiOper():new("CONNECT", "Verbo inválido", "Não deve ser criado.")
+    Catch oError
+        lBadVerb := .T.
+        cBadVerb := oError:Description
+    EndTry
+
+    assertEquals(.T., lBadVerb, "Verbo desconhecido deve falhar imediatamente.")
+    assertEquals("Verbo OpenAPI não suportado: CONNECT.", cBadVerb, "O erro deve diagnosticar o verbo desconhecido.")
+
+    oDupResp := OApiResp():new("200", "Resposta que não deve substituir a original.")
+
+    Try
+        oOper:addResp(oDupResp)
+    Catch oError
+        lDupErr := .T.
+        cDupErr := oError:Description
+    EndTry
+
+    assertEquals(.T., lDupErr, "Resposta duplicada deve falhar imediatamente.")
+    assertEquals("Resposta duplicada: 200.", cDupErr, "O erro deve diagnosticar o código duplicado.")
+
+    aResps := oOper:getResps()
+    assertEquals(1, Len(aResps), "A falha não deve incluir nem substituir a resposta original.")
+    If Len(aResps) >= 1
+        assertEquals("Resposta retornada com sucesso.", aResps[1]:getDesc(), "A resposta original deve permanecer inalterada.")
+    EndIf
+
+    oOper:addResp(oNextRsp)
+    aResps := oOper:getResps()
+
+    assertEquals(2, Len(aResps), "A operação deve continuar utilizável após a inclusão rejeitada.")
+    If Len(aResps) >= 2
+        assertEquals("201", aResps[2]:getCode(), "Uma nova resposta válida deve ser aceita após a falha.")
     EndIf
 
 Return .T.

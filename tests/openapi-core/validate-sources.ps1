@@ -3,6 +3,7 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $fixturePath = Join-Path $PSScriptRoot "custom.openapi.core.test.tlpp"
 $infoPath = Join-Path $repoRoot "src\core\custom.openapi.info.tlpp"
 $respPath = Join-Path $repoRoot "src\core\custom.openapi.response.tlpp"
+$operPath = Join-Path $repoRoot "src\core\custom.openapi.operation.tlpp"
 
 function Get-Cp1252Content {
     param(
@@ -250,6 +251,109 @@ foreach ($methodName in @("new", "getCode", "getDesc", "validate")) {
             -Pattern $pattern `
             -Message "ProtheusDOC incompleto para OApiResp::${methodName}: $pattern"
     }
+}
+
+if (-not (Test-Path -LiteralPath $operPath -PathType Leaf)) {
+    throw "Fonte OApiOper não encontrado: $operPath"
+}
+
+$operContent = Get-Cp1252Content -Path $operPath
+$operIncludes = [regex]::Matches(
+    $operContent,
+    '(?im)^[\t ]*#include[\t ]+["''](?<name>[^"'']+)["''][\t ]*\r?$'
+)
+$operExpectedIncludes = @("tlpp-core.th", "totvs.ch")
+
+if ($operIncludes.Count -lt $operExpectedIncludes.Count) {
+    throw "Includes obrigatórios ausentes no fonte OApiOper."
+}
+
+for ($index = 0; $index -lt $operExpectedIncludes.Count; $index++) {
+    if ($operIncludes[$index].Groups["name"].Value -cne $operExpectedIncludes[$index]) {
+        throw "Ordem de includes inválida no OApiOper: esperado '$($operExpectedIncludes[$index])' na posição $($index + 1)."
+    }
+}
+
+Assert-Match -Content $operContent `
+    -Pattern '(?m)^[\t ]*namespace[\t ]+custom\.openapi\.core[\t ]*\r?$' `
+    -Message "Namespace custom.openapi.core ausente no OApiOper."
+Assert-Match -Content $operContent `
+    -Pattern '(?im)^[\t ]*class[\t ]+OApiOper\b' `
+    -Message "Classe OApiOper ausente."
+
+$operDocs = @{}
+
+foreach ($methodName in @("new", "getMethod", "getSummary", "getDesc", "getResps", "addResp", "validate")) {
+    $methodMatch = [regex]::Match(
+        $operContent,
+        "(?is)(?<doc>/\*/\{Protheus\.doc\}[\t ]+OApiOper::$methodName\b.*?\*/)[\t \r\n]*method[\t ]+$methodName[\t ]*\("
+    )
+
+    if (-not $methodMatch.Success) {
+        throw "ProtheusDOC obrigatório ausente para OApiOper::$methodName."
+    }
+
+    $operDocs[$methodName] = $methodMatch.Groups["doc"].Value
+
+    foreach ($pattern in @(
+        '(?im)^[\t ]*@type[\t ]+method\b',
+        '(?im)^[\t ]*@author[\t ]+Dirlei Silva\b',
+        '(?im)^[\t ]*@since[\t ]+2026-08-25\b'
+    )) {
+        Assert-Match -Content $operDocs[$methodName] `
+            -Pattern $pattern `
+            -Message "ProtheusDOC incompleto para OApiOper::${methodName}: $pattern"
+    }
+}
+
+foreach ($pattern in @(
+    '(?im)^[\t ]*@param[\t ]+cMethod,[\t ]+character,[\t ]+[^\r\n]+$',
+    '(?im)^[\t ]*@param[\t ]+cSummary,[\t ]+character,[\t ]+[^\r\n]+$',
+    '(?im)^[\t ]*@param[\t ]+cDesc,[\t ]+character,[\t ]+[^\r\n]+$',
+    '(?im)^[\t ]*@return[\t ]+object,[\t ]+[^\r\n]+$'
+)) {
+    Assert-Match -Content $operDocs["new"] `
+        -Pattern $pattern `
+        -Message "ProtheusDOC incompleto para OApiOper::new: $pattern"
+}
+
+foreach ($methodName in @("getMethod", "getSummary", "getDesc")) {
+    Assert-Match -Content $operDocs[$methodName] `
+        -Pattern '(?im)^[\t ]*@return[\t ]+character,[\t ]+[^\r\n]+$' `
+        -Message "@return character ausente para OApiOper::$methodName."
+}
+
+Assert-Match -Content $operDocs["getResps"] `
+    -Pattern '(?im)^[\t ]*@return[\t ]+array,[\t ]+[^\r\n]+$' `
+    -Message "@return array ausente para OApiOper::getResps."
+
+foreach ($pattern in @(
+    '(?im)^[\t ]*@param[\t ]+oResp,[\t ]+object,[\t ]+[^\r\n]+$',
+    '(?im)^[\t ]*@return[\t ]+object,[\t ]+[^\r\n]+$'
+)) {
+    Assert-Match -Content $operDocs["addResp"] `
+        -Pattern $pattern `
+        -Message "ProtheusDOC incompleto para OApiOper::addResp: $pattern"
+}
+
+Assert-Match -Content $operDocs["validate"] `
+    -Pattern '(?im)^[\t ]*@return[\t ]+array,[\t ]+[^\r\n]+$' `
+    -Message "@return array ausente para OApiOper::validate."
+
+Assert-Match -Content $operContent `
+    -Pattern '(?is)/\*/\{Protheus\.doc\}[\t ]+OApiOper\b.*?@type[\t ]+class\b.*?@author[\t ]+Dirlei Silva\b.*?@since[\t ]+2026-08-25\b.*?\*/[\t \r\n]*class[\t ]+OApiOper\b' `
+    -Message "ProtheusDOC obrigatório ausente para a classe OApiOper."
+
+$operValidation = [regex]::Replace($operContent, '(?s)/\*.*?\*/', '')
+$operValidation = [regex]::Replace($operValidation, '(?m)//[^\r\n]*', '')
+
+foreach ($methodName in @("new", "getMethod", "getSummary", "getDesc", "getResps", "addResp", "validate")) {
+    Assert-Match -Content $operValidation `
+        -Pattern "(?im)^[\t ]*public[\t ]+method[\t ]+$methodName[\t ]*\(" `
+        -Message "Método público OApiOper::$methodName ausente na declaração da classe."
+    Assert-Match -Content $operValidation `
+        -Pattern "(?im)^[\t ]*method[\t ]+$methodName[\t ]*\([^\r\n]*\)[^\r\n]*class[\t ]+OApiOper\b" `
+        -Message "Implementação OApiOper::$methodName ausente."
 }
 
 foreach ($pattern in @(
