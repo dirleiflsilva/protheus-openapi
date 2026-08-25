@@ -1,0 +1,117 @@
+#include "tlpp-core.th"
+#include "totvs.ch"
+
+namespace custom.openapi.core
+
+/*/{Protheus.doc} OApiJson
+    Serializa um documento OpenAPI válido como JSON.
+    @type class
+    @author Dirlei Silva
+    @since 2026-08-25
+*/
+class OApiJson
+    public method new() as object
+    public method toJson(oDoc as object) as character
+endclass
+
+/*/{Protheus.doc} OApiJson::new
+    Inicializa o serializador JSON do núcleo OpenAPI.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-25
+    @return object, Instância inicializada de OApiJson
+*/
+method new() as object class OApiJson
+return self
+
+/*/{Protheus.doc} OApiJson::toJson
+    Valida e serializa integralmente o documento OpenAPI recebido.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-25
+    @param oDoc, object, Documento OpenAPI que será serializado
+    @return character, Documento OpenAPI em formato JSON
+*/
+method toJson(oDoc as object) as character class OApiJson
+
+    Local aPend  := {} as Array
+    Local aPaths := {} as Array
+    Local aOpers := {} as Array
+    Local aResps := {} as Array
+    Local cError := "" as Character
+    Local cPath  := "" as Character
+    Local cMethod := "" as Character
+    Local cCode  := "" as Character
+    Local jRoot  as Json
+    Local jInfo  as Json
+    Local jPaths as Json
+    Local jPath  as Json
+    Local jOper  as Json
+    Local jResps as Json
+    Local jResp  as Json
+    Local oInfo  as Object
+    Local nPend  := 0 as Numeric
+    Local nPath  := 0 as Numeric
+    Local nOper  := 0 as Numeric
+    Local nResp  := 0 as Numeric
+
+    aPend := oDoc:validate()
+
+    If !Empty(aPend)
+        cError := "Documento OpenAPI inválido: "
+
+        For nPend := 1 To Len(aPend)
+            If nPend > 1
+                cError += " | "
+            EndIf
+
+            cError += aPend[nPend]
+        Next nPend
+
+        UserException(cError)
+    EndIf
+
+    jRoot  := JsonObject():New()
+    jInfo  := JsonObject():New()
+    jPaths := JsonObject():New()
+    oInfo  := oDoc:getInfo()
+
+    jRoot["openapi"]    := oDoc:getOpenApi()
+    jInfo["title"]      := oInfo:getTitle()
+    jInfo["description"] := oInfo:getDesc()
+    jInfo["version"]    := oInfo:getVer()
+    jRoot["info"]       := jInfo
+
+    aPaths := oDoc:getPaths()
+
+    For nPath := 1 To Len(aPaths)
+        cPath := aPaths[nPath]:getPath()
+        jPath := JsonObject():New()
+        aOpers := aPaths[nPath]:getOpers()
+
+        For nOper := 1 To Len(aOpers)
+            cMethod := aOpers[nOper]:getMethod()
+            jOper   := JsonObject():New()
+            jResps  := JsonObject():New()
+
+            jOper["summary"]     := aOpers[nOper]:getSummary()
+            jOper["description"] := aOpers[nOper]:getDesc()
+            aResps := aOpers[nOper]:getResps()
+
+            For nResp := 1 To Len(aResps)
+                cCode := aResps[nResp]:getCode()
+                jResp := JsonObject():New()
+                jResp["description"] := aResps[nResp]:getDesc()
+                jResps[cCode] := jResp
+            Next nResp
+
+            jOper["responses"] := jResps
+            jPath[cMethod] := jOper
+        Next nOper
+
+        jPaths[cPath] := jPath
+    Next nPath
+
+    jRoot["paths"] := jPaths
+
+return jRoot:ToJson()

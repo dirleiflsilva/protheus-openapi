@@ -6,6 +6,7 @@ $respPath = Join-Path $repoRoot "src\core\custom.openapi.response.tlpp"
 $operPath = Join-Path $repoRoot "src\core\custom.openapi.operation.tlpp"
 $pathPath = Join-Path $repoRoot "src\core\custom.openapi.path.tlpp"
 $docPath = Join-Path $repoRoot "src\core\custom.openapi.document.tlpp"
+$jsonPath = Join-Path $repoRoot "src\core\custom.openapi.json.tlpp"
 
 function Get-Cp1252Content {
     param(
@@ -594,6 +595,118 @@ foreach ($methodName in @("new", "getPath", "getOpers", "addOper", "validate")) 
     Assert-Match -Content $pathValidation `
         -Pattern "(?im)^[\t ]*method[\t ]+$methodName[\t ]*\([^\r\n]*\)[^\r\n]*class[\t ]+OApiPath\b" `
         -Message "Implementação OApiPath::$methodName ausente."
+}
+
+if (-not (Test-Path -LiteralPath $jsonPath -PathType Leaf)) {
+    throw "Fonte OApiJson não encontrado: $jsonPath"
+}
+
+$jsonContent = Get-Cp1252Content -Path $jsonPath
+$jsonIncludes = [regex]::Matches(
+    $jsonContent,
+    '(?im)^[\t ]*#include[\t ]+["''](?<name>[^"'']+)["''][\t ]*\r?$'
+)
+$jsonExpectedIncludes = @("tlpp-core.th", "totvs.ch")
+
+if ($jsonIncludes.Count -lt $jsonExpectedIncludes.Count) {
+    throw "Includes obrigatórios ausentes no fonte OApiJson."
+}
+
+for ($index = 0; $index -lt $jsonExpectedIncludes.Count; $index++) {
+    if ($jsonIncludes[$index].Groups["name"].Value -cne $jsonExpectedIncludes[$index]) {
+        throw "Ordem de includes inválida no OApiJson: esperado '$($jsonExpectedIncludes[$index])' na posição $($index + 1)."
+    }
+}
+
+Assert-Match -Content $jsonContent `
+    -Pattern '(?m)^[\t ]*namespace[\t ]+custom\.openapi\.core[\t ]*\r?$' `
+    -Message "Namespace custom.openapi.core ausente no OApiJson."
+Assert-Match -Content $jsonContent `
+    -Pattern '(?im)^[\t ]*class[\t ]+OApiJson\b' `
+    -Message "Classe OApiJson ausente."
+
+$jsonDocs = @{}
+
+foreach ($methodName in @("new", "toJson")) {
+    $methodMatch = [regex]::Match(
+        $jsonContent,
+        "(?is)(?<doc>/\*/\{Protheus\.doc\}[\t ]+OApiJson::$methodName\b.*?\*/)[\t \r\n]*method[\t ]+$methodName[\t ]*\("
+    )
+
+    if (-not $methodMatch.Success) {
+        throw "ProtheusDOC obrigatório ausente para OApiJson::$methodName."
+    }
+
+    $jsonDocs[$methodName] = $methodMatch.Groups["doc"].Value
+
+    foreach ($pattern in @(
+        '(?im)^[\t ]*@type[\t ]+method\b',
+        '(?im)^[\t ]*@author[\t ]+Dirlei Silva\b',
+        '(?im)^[\t ]*@since[\t ]+2026-08-25\b'
+    )) {
+        Assert-Match -Content $jsonDocs[$methodName] `
+            -Pattern $pattern `
+            -Message "ProtheusDOC incompleto para OApiJson::${methodName}: $pattern"
+    }
+}
+
+Assert-Match -Content $jsonDocs["new"] `
+    -Pattern '(?im)^[\t ]*@return[\t ]+object,[\t ]+[^\r\n]+$' `
+    -Message "@return object ausente para OApiJson::new."
+
+foreach ($pattern in @(
+    '(?im)^[\t ]*@param[\t ]+oDoc,[\t ]+object,[\t ]+[^\r\n]+$',
+    '(?im)^[\t ]*@return[\t ]+character,[\t ]+[^\r\n]+$'
+)) {
+    Assert-Match -Content $jsonDocs["toJson"] `
+        -Pattern $pattern `
+        -Message "ProtheusDOC incompleto para OApiJson::toJson: $pattern"
+}
+
+Assert-Match -Content $jsonContent `
+    -Pattern '(?is)/\*/\{Protheus\.doc\}[\t ]+OApiJson\b.*?@type[\t ]+class\b.*?@author[\t ]+Dirlei Silva\b.*?@since[\t ]+2026-08-25\b.*?\*/[\t \r\n]*class[\t ]+OApiJson\b' `
+    -Message "ProtheusDOC obrigatório ausente para a classe OApiJson."
+
+$jsonValidation = [regex]::Replace($jsonContent, '(?s)/\*.*?\*/', '')
+$jsonValidation = [regex]::Replace($jsonValidation, '(?m)//[^\r\n]*', '')
+
+foreach ($methodName in @("new", "toJson")) {
+    Assert-Match -Content $jsonValidation `
+        -Pattern "(?im)^[\t ]*public[\t ]+method[\t ]+$methodName[\t ]*\(" `
+        -Message "Método público OApiJson::$methodName ausente na declaração da classe."
+    Assert-Match -Content $jsonValidation `
+        -Pattern "(?im)^[\t ]*method[\t ]+$methodName[\t ]*\([^\r\n]*\)[^\r\n]*class[\t ]+OApiJson\b" `
+        -Message "Implementação OApiJson::$methodName ausente."
+}
+
+$toJsonMatch = [regex]::Match(
+    $jsonValidation,
+    '(?is)method[\t ]+toJson[\t ]*\([^\r\n]*\)[^\r\n]*class[\t ]+OApiJson\b(?<body>.*?)(?=^[\t ]*method\b|\z)'
+)
+
+if (-not $toJsonMatch.Success) {
+    throw "Corpo de OApiJson::toJson não encontrado."
+}
+
+$toJsonBody = $toJsonMatch.Groups["body"].Value
+$validateMatch = [regex]::Match($toJsonBody, '(?i)oDoc[\t ]*:[\t ]*validate[\t ]*\(')
+$newMatch = [regex]::Match($toJsonBody, '(?i)JsonObject[\t ]*\([\t ]*\)[\t ]*:[\t ]*New[\t ]*\(')
+$serializeMatch = [regex]::Match($toJsonBody, '(?i):[\t ]*ToJson[\t ]*\(')
+
+if (-not $validateMatch.Success) {
+    throw "OApiJson::toJson deve validar o documento antes de serializar."
+}
+
+if (-not $newMatch.Success) {
+    throw "JsonObject():New() ausente em OApiJson::toJson."
+}
+
+if ($validateMatch.Index -gt $newMatch.Index) {
+    throw "OApiJson::toJson deve validar antes de criar a saída JSON."
+}
+
+if (-not $serializeMatch.Success -or $serializeMatch.Index -lt $newMatch.Index) {
+    throw "ToJson() ausente após a criação do objeto JSON."
 }
 
 $forbidden = @{

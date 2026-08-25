@@ -49,6 +49,18 @@ User Function OApiTst() as Logical
     Local oInvPath as Object
     Local oInvDoc  as Object
     Local oMultiDoc as Object
+    Local oJson    as Object
+    Local oJInfo   as Object
+    Local oJResp   as Object
+    Local oJBad    as Object
+    Local oJOper   as Object
+    Local oJPost   as Object
+    Local oJPResp  as Object
+    Local oJPath   as Object
+    Local oJStat   as Object
+    Local oJSOper  as Object
+    Local oJSResp  as Object
+    Local jParsed  as Json
     Local aValid  := {} as Array
     Local aPend   := {} as Array
     Local aRValid := {} as Array
@@ -69,11 +81,15 @@ User Function OApiTst() as Logical
     Local cPathErr := "" as Character
     Local cDupOper := "" as Character
     Local cDupPath := "" as Character
+    Local cJson    := "" as Character
+    Local cJsonErr := "" as Character
+    Local cParse   := "" as Character
     Local lBadVerb := .F. as Logical
     Local lDupErr  := .F. as Logical
     Local lPathErr := .F. as Logical
     Local lDupOper := .F. as Logical
     Local lDupPath := .F. as Logical
+    Local lJsonErr := .F. as Logical
     Local nVerb    := 0 as Numeric
 
     assertEquals(.T., .T., "O harness PROBAT deve aceitar valores iguais.")
@@ -368,6 +384,71 @@ User Function OApiTst() as Logical
         assertEquals("Path /api/v1/pending: Operação post sem respostas.", aMulti[1], "A pendência do primeiro path deve ocupar a primeira posição.")
         assertEquals("Path /api/v1/invalid: Operação get, resposta <vazio>: Código da resposta é obrigatório.", aMulti[2], "A primeira pendência do segundo path deve ocupar a segunda posição.")
         assertEquals("Path /api/v1/invalid: Operação get, resposta <vazio>: Descrição da resposta é obrigatória.", aMulti[3], "A segunda pendência do segundo path deve ocupar a terceira posição.")
+    EndIf
+
+    oJson := OApiJson():new()
+
+    Try
+        cJson := oJson:toJson(oBadDoc)
+    Catch oError
+        lJsonErr := .T.
+        cJsonErr := oError:Description
+    EndTry
+
+    assertEquals(.T., lJsonErr, "Documento incompleto deve ser rejeitado antes da serialização.")
+    assertEquals("Documento OpenAPI inválido: Título da API é obrigatório. | Versão da API é obrigatória. | Documento OpenAPI deve possuir ao menos um path.", cJsonErr, "O erro deve agregar todas as pendências sem dados de ambiente.")
+    assertEquals("", cJson, "Falha de validação não deve retornar JSON parcial.")
+
+    oJInfo := OApiInfo():new(;
+        "Hello World API",;
+        "API de demonstração do núcleo OpenAPI.",;
+        "1.0.0";
+    )
+    oJResp := OApiResp():new("200", "Hello World retornado com sucesso.")
+    oJBad := OApiResp():new("400", "Requisição inválida.")
+    oJOper := OApiOper():new(;
+        "GET",;
+        "Hello World",;
+        "Retorna uma mensagem Hello World gerada por um endpoint TL++.";
+    )
+    oJOper:addResp(oJResp)
+    oJOper:addResp(oJBad)
+    oJPost := OApiOper():new("POST", "Cria saudação", "Cria uma nova saudação.")
+    oJPResp := OApiResp():new("201", "Saudação criada com sucesso.")
+    oJPost:addResp(oJPResp)
+    oJPath := OApiPath():new("/api/v1/hello")
+    oJPath:addOper(oJOper)
+    oJPath:addOper(oJPost)
+    oJStat := OApiPath():new("/api/v1/status")
+    oJSOper := OApiOper():new("GET", "Consulta status", "Retorna o status da API.")
+    oJSResp := OApiResp():new("200", "Status retornado com sucesso.")
+    oJSOper:addResp(oJSResp)
+    oJStat:addOper(oJSOper)
+    oDoc := OApiDoc():new(oJInfo)
+    oDoc:addPath(oJPath)
+    oDoc:addPath(oJStat)
+
+    cJson := oJson:toJson(oDoc)
+    assertEquals("C", ValType(cJson), "A serialização válida deve retornar character.")
+    assertEquals(.F., Empty(cJson), "A serialização válida deve retornar conteúdo JSON.")
+
+    jParsed := JsonObject():New()
+    cParse := jParsed:FromJson(cJson)
+    assertEquals(.T., Empty(cParse), "O JSON produzido deve ser aceito por JsonObject:FromJson().")
+
+    If Empty(cParse)
+        assertEquals("3.0.3", jParsed["openapi"], "O JSON deve preservar a versão OpenAPI.")
+        assertEquals("Hello World API", jParsed["info"]["title"], "O JSON deve preservar o título da API.")
+        assertEquals("API de demonstração do núcleo OpenAPI.", jParsed["info"]["description"], "O JSON deve preservar a descrição da API.")
+        assertEquals("1.0.0", jParsed["info"]["version"], "O JSON deve preservar a versão da API.")
+        assertEquals("Hello World", jParsed["paths"]["/api/v1/hello"]["get"]["summary"], "O JSON deve preservar o resumo da operação GET.")
+        assertEquals("Retorna uma mensagem Hello World gerada por um endpoint TL++.", jParsed["paths"]["/api/v1/hello"]["get"]["description"], "O JSON deve preservar a descrição da operação GET.")
+        assertEquals("Hello World retornado com sucesso.", jParsed["paths"]["/api/v1/hello"]["get"]["responses"]["200"]["description"], "O JSON deve preservar a descrição da resposta 200.")
+        assertEquals("Requisição inválida.", jParsed["paths"]["/api/v1/hello"]["get"]["responses"]["400"]["description"], "O JSON deve preservar a segunda resposta da operação GET.")
+        assertEquals("Cria saudação", jParsed["paths"]["/api/v1/hello"]["post"]["summary"], "O JSON deve preservar a segunda operação do path Hello World.")
+        assertEquals("Saudação criada com sucesso.", jParsed["paths"]["/api/v1/hello"]["post"]["responses"]["201"]["description"], "O JSON deve preservar a resposta 201 da operação POST.")
+        assertEquals("Consulta status", jParsed["paths"]["/api/v1/status"]["get"]["summary"], "O JSON deve preservar a operação GET do segundo path.")
+        assertEquals("Status retornado com sucesso.", jParsed["paths"]["/api/v1/status"]["get"]["responses"]["200"]["description"], "O JSON deve preservar a resposta 200 do segundo path.")
     EndIf
 
 Return .T.
