@@ -48,7 +48,7 @@ OApiInfo -> OApiDoc -> OApiPath -> OApiOper -> OApiResp
 Os nomes são deliberadamente curtos. A implementação deverá conservar tipagem explícita e declarar os métodos na classe antes de implementá-los.
 
 ```text
-OApiInfo:new(cTitle, cDesc, cVer)
+OApiInfo:new(cTitle, cDesc, cApiVer)
 OApiResp:new(cCode, cDesc)
 OApiOper:new(cMethod, cSummary, cDesc)
 OApiOper:addResp(oResp)
@@ -57,6 +57,7 @@ OApiPath:addOper(oOper)
 OApiDoc:new(oInfo)
 OApiDoc:addPath(oPath)
 OApiDoc:validate() -> array
+OApiJson:new()
 OApiJson:toJson(oDoc) -> character
 ```
 

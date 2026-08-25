@@ -2,7 +2,7 @@
 
 > Gerador experimental de documentação OpenAPI para APIs REST desenvolvidas no TOTVS Protheus.
 
-[![Status](https://img.shields.io/badge/status-em%20planejamento-blue)](#status-do-projeto)
+[![Status](https://img.shields.io/badge/status-n%C3%BAcleo%20m%C3%ADnimo%20conclu%C3%ADdo-success)](#status-do-projeto)
 [![Linguagem](https://img.shields.io/badge/linguagem-TL%2B%2B-2d6ca2)](https://tdn.totvs.com/display/tec/TLPP)
 [![OpenAPI](https://img.shields.io/badge/OpenAPI-3.0.3-6ba539)](https://spec.openapis.org/oas/v3.0.3)
 [![Licença](https://img.shields.io/badge/licen%C3%A7a-MIT-green)](LICENSE)
@@ -73,16 +73,24 @@ Como os corpos de requisição e resposta podem ser construídos dinamicamente, 
 
 ## Status do projeto
 
-O projeto está em fase inicial de pesquisa e planejamento. Ainda não existe uma versão utilizável da biblioteca.
+O núcleo manual mínimo está concluído e validado como um recorte experimental da biblioteca. Ele já permite montar, validar e serializar em JSON um documento OpenAPI 3.0.3; a descoberta automática de endpoints ainda não faz parte desta entrega.
 
 | Marco | Estado |
 | --- | --- |
-| Definição da visão e do roadmap | Em andamento |
-| Provas de conceito em TL++ | Planejado |
-| Núcleo do modelo OpenAPI | Planejado |
-| Suporte a endpoints TL++ | Planejado |
+| Definição da visão e do roadmap | Concluído para o núcleo mínimo |
+| Provas de conceito em TL++ | Concluído |
+| Núcleo do modelo OpenAPI | Concluído |
+| Adaptador para descoberta de endpoints TL++ | Planejado |
 | Suporte a `WSRESTFUL` em AdvPL | Planejado |
 | Primeira versão experimental | Planejado |
+
+### Núcleo mínimo validado
+
+O primeiro vertical slice reúne seis classes no namespace `custom.openapi.core`: `OApiInfo`, `OApiResp`, `OApiOper`, `OApiPath`, `OApiDoc` e `OApiJson`. O exemplo `GET /api/v1/openapi/core` monta manualmente a documentação do Hello World, valida o modelo antes da saída e retorna JSON OpenAPI 3.0.3.
+
+A implementação possui testes TL++ executados pelo PROBAT, contratos estáticos em PowerShell e uma fixture JSON validada estruturalmente. O [diário técnico do núcleo](docs/experiments/openapi-core-model.md) reúne arquitetura, evidências TDD, rastreabilidade e comandos reproduzíveis.
+
+Este marco conclui a modelagem e a serialização manuais. Os adaptadores para descobrir annotations TL++ e serviços `WSRESTFUL` AdvPL continuam planejados e serão desenvolvidos separadamente.
 
 ## Roadmap de aprendizado e desenvolvimento
 

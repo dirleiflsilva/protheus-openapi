@@ -6,11 +6,11 @@ O experimento comprovou que o gerador nativo documenta endpoints TL++, mas sua s
 
 ## Objetivos
 
-- [ ] Construir em TL++ um modelo mínimo de documento OpenAPI 3.0.3.
-- [ ] Serializar o modelo como JSON válido sem depender de `tlpp.doc.generate()`.
-- [ ] Representar integralmente o endpoint Hello World já validado.
-- [ ] Rejeitar ambiguidades e impedir serialização parcial.
-- [ ] Demonstrar o núcleo por um endpoint REST reproduzível.
+- [x] Construir em TL++ um modelo mínimo de documento OpenAPI 3.0.3.
+- [x] Serializar o modelo como JSON válido sem depender de `tlpp.doc.generate()`.
+- [x] Representar integralmente o endpoint Hello World já validado.
+- [x] Rejeitar ambiguidades e impedir serialização parcial.
+- [x] Demonstrar o núcleo por um endpoint REST reproduzível.
 
 ## Fora do escopo
 
@@ -83,19 +83,33 @@ O experimento comprovou que o gerador nativo documenta endpoints TL++, mas sua s
 
 ## Rastreabilidade
 
-| Requisito | História | Estado |
+| Requisito | Evidência principal | Estado |
 | --- | --- | --- |
-| CORE-01 a CORE-05 | Construir o documento mínimo | Em design |
-| CORE-06 a CORE-10 | Proteger invariantes | Em design |
-| CORE-11 a CORE-14 | Validar completude | Em design |
-| CORE-15 a CORE-18 | Serializar e publicar | Em design |
+| CORE-01 | `OApiDoc:getOpenApi()` e teste do valor `3.0.3` | Validado |
+| CORE-02 | getters de `OApiInfo` e asserções de preservação | Validado |
+| CORE-03 | getters de `OApiPath`/`OApiOper` e asserções do Hello World | Validado |
+| CORE-04 | getters de `OApiResp` e asserções de código/descrição | Validado |
+| CORE-05 | fixture TL++ e endpoint que montam `GET /api/v1/hello` com resposta `200` | Validado |
+| CORE-06 | rejeição imediata de path inválido exercitada no PROBAT | Validado |
+| CORE-07 | rejeição de verbo não suportado exercitada no PROBAT | Validado |
+| CORE-08 | operação duplicada rejeitada sem substituir a original | Validado |
+| CORE-09 | resposta duplicada rejeitada sem substituir a original | Validado |
+| CORE-10 | testes de reutilização após inclusões rejeitadas | Validado |
+| CORE-11 | validação acumulada de info inválida e ausência de paths | Validado |
+| CORE-12 | validação transitiva com contexto de path e verbo | Validado |
+| CORE-13 | `OApiJson:toJson()` rejeita documento incompleto | Validado |
+| CORE-14 | asserção comprova saída vazia após a rejeição | Validado |
+| CORE-15 | JSON parseado e comparado estruturalmente no PROBAT e no validador | Validado |
+| CORE-16 | chamada autenticada do endpoint retornou `200` e `application/json` | Validado |
+| CORE-17 | corpo capturado aceito como OpenAPI 3.0.3 com o Hello World | Validado |
+| CORE-18 | chamada sem autenticação preservou o HTTP `401` do AppServer | Validado |
 
-**Cobertura:** 18 requisitos, 18 mapeados no design, 0 não mapeados.
+**Cobertura:** 18 requisitos validados, 18 com evidência rastreável, 0 não mapeados.
 
 ## Critérios de sucesso
 
-- [ ] Todos os fontes compilam no ambiente `P12_2510` após conversão para Windows-1252 sem BOM.
-- [ ] Testes do núcleo cobrem construção, conflitos, incompletudes e serialização.
-- [ ] O endpoint autenticado retorna um OpenAPI 3.0.3 válido equivalente ao Hello World.
-- [ ] Nenhum fonte do núcleo chama `tlpp.doc.generate()`.
-- [ ] O design registra limitações e referências suficientes para um post técnico reproduzível.
+- [x] Todos os fontes compilam no ambiente `P12_2510` após conversão para Windows-1252 sem BOM.
+- [x] Testes do núcleo cobrem construção, conflitos, incompletudes e serialização.
+- [x] O endpoint autenticado retorna um OpenAPI 3.0.3 válido equivalente ao Hello World.
+- [x] Nenhum fonte do núcleo chama `tlpp.doc.generate()`.
+- [x] O design registra limitações e referências suficientes para um post técnico reproduzível.

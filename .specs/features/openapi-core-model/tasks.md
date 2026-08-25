@@ -2,7 +2,7 @@
 
 **Design:** `.specs/features/openapi-core-model/design.md`
 **Plano:** `docs/plans/2026-08-21-openapi-core-model.md`
-**Estado:** aprovado
+**Estado:** concluído
 
 ## Plano de execução
 
@@ -23,10 +23,10 @@ As tarefas são sequenciais porque cada entidade adiciona um nível do modelo e 
 
 **Concluída quando:**
 
-- [ ] `@TestFixture()` compila sobre `User Function` sem declaração explícita de `U_`;
-- [ ] pelo menos uma asserção deliberadamente falha e depois passa;
-- [ ] se PROBAT não descobrir a função conforme as regras do projeto, a limitação é registrada e um harness REST de testes é especificado;
-- [ ] o contrato PowerShell identifica includes, namespace e documentação obrigatórios.
+- [x] `@TestFixture()` compila sobre `User Function` sem declaração explícita de `U_`;
+- [x] pelo menos uma asserção deliberadamente falha e depois passa;
+- [x] o PROBAT descobriu a `User Function`; não foi necessário criar um harness REST alternativo;
+- [x] o contrato PowerShell identifica includes, namespace e documentação obrigatórios.
 
 **Commit:** `test(openapi): prepara testes do núcleo tlpp`
 
@@ -41,10 +41,10 @@ As tarefas são sequenciais porque cada entidade adiciona um nível do modelo e 
 
 **Concluída quando:**
 
-- [ ] os valores informados são recuperados sem alteração;
-- [ ] título e versão vazios aparecem juntos no array de validação;
-- [ ] fonte contém ProtheusDOC completo e está em Windows-1252 sem BOM;
-- [ ] testes e compilação passam.
+- [x] os valores informados são recuperados sem alteração;
+- [x] título e versão vazios aparecem juntos no array de validação;
+- [x] fonte contém ProtheusDOC completo e está em Windows-1252 sem BOM;
+- [x] testes e compilação passam.
 
 **Commit:** `feat(openapi): adiciona informações do documento`
 
@@ -59,9 +59,9 @@ As tarefas são sequenciais porque cada entidade adiciona um nível do modelo e 
 
 **Concluída quando:**
 
-- [ ] código `200` e descrição são preservados;
-- [ ] valores obrigatórios vazios são diagnosticados;
-- [ ] testes, encoding e compilação passam.
+- [x] código `200` e descrição são preservados;
+- [x] valores obrigatórios vazios são diagnosticados;
+- [x] testes, encoding e compilação passam.
 
 **Commit:** `feat(openapi): adiciona respostas ao modelo`
 
@@ -76,11 +76,11 @@ As tarefas são sequenciais porque cada entidade adiciona um nível do modelo e 
 
 **Concluída quando:**
 
-- [ ] verbo suportado é armazenado em minúsculas;
-- [ ] verbo desconhecido falha imediatamente;
-- [ ] resposta duplicada falha sem substituir a original;
-- [ ] operação sem resposta gera pendência acumulada;
-- [ ] testes, encoding e compilação passam.
+- [x] verbo suportado é armazenado em minúsculas;
+- [x] verbo desconhecido falha imediatamente;
+- [x] resposta duplicada falha sem substituir a original;
+- [x] operação sem resposta gera pendência acumulada;
+- [x] testes, encoding e compilação passam.
 
 **Commit:** `feat(openapi): adiciona operações e respostas`
 
@@ -95,10 +95,10 @@ As tarefas são sequenciais porque cada entidade adiciona um nível do modelo e 
 
 **Concluída quando:**
 
-- [ ] path iniciado por `/` aceita uma operação;
-- [ ] path inválido falha antes de alterar o objeto;
-- [ ] verbo repetido no mesmo path falha sem substituir a primeira operação;
-- [ ] testes, encoding e compilação passam.
+- [x] path iniciado por `/` aceita uma operação;
+- [x] path inválido falha antes de alterar o objeto;
+- [x] verbo repetido no mesmo path falha sem substituir a primeira operação;
+- [x] testes, encoding e compilação passam.
 
 **Commit:** `feat(openapi): adiciona paths ao modelo`
 
@@ -113,10 +113,10 @@ As tarefas são sequenciais porque cada entidade adiciona um nível do modelo e 
 
 **Concluída quando:**
 
-- [ ] versão OpenAPI é sempre `3.0.3`;
-- [ ] Hello World pode ser representado integralmente;
-- [ ] validação relata simultaneamente info e paths ausentes;
-- [ ] testes, encoding e compilação passam.
+- [x] versão OpenAPI é sempre `3.0.3`;
+- [x] Hello World pode ser representado integralmente;
+- [x] validação relata simultaneamente info e paths ausentes;
+- [x] testes, encoding e compilação passam.
 
 **Commit:** `feat(openapi): adiciona documento raiz`
 
@@ -131,10 +131,10 @@ As tarefas são sequenciais porque cada entidade adiciona um nível do modelo e 
 
 **Concluída quando:**
 
-- [ ] documento incompleto gera erro antes de criar saída;
-- [ ] JSON válido contém info, path, get e resposta `200`;
-- [ ] teste compara estrutura, não ordem textual;
-- [ ] testes, encoding e compilação passam.
+- [x] documento incompleto gera erro antes de criar saída;
+- [x] JSON válido contém info, path, get e resposta `200`;
+- [x] teste compara estrutura, não ordem textual;
+- [x] testes, encoding e compilação passam.
 
 **Commit:** `feat(openapi): serializa modelo como json`
 
@@ -149,10 +149,10 @@ As tarefas são sequenciais porque cada entidade adiciona um nível do modelo e 
 
 **Concluída quando:**
 
-- [ ] endpoint não usa `tlpp.doc.generate()` nem filesystem;
-- [ ] chamada sem autenticação retorna `401` pelo AppServer;
-- [ ] chamada autenticada retorna `200`, `application/json` e o documento esperado;
-- [ ] JSON capturado passa no validador OpenAPI do projeto.
+- [x] endpoint não usa `tlpp.doc.generate()` nem filesystem;
+- [x] chamada sem autenticação retorna `401` pelo AppServer;
+- [x] chamada autenticada retorna `200`, `application/json` e o documento esperado;
+- [x] JSON capturado passa no validador OpenAPI do projeto.
 
 **Commit:** `feat(openapi): publica demonstração do núcleo`
 
@@ -167,11 +167,11 @@ As tarefas são sequenciais porque cada entidade adiciona um nível do modelo e 
 
 **Concluída quando:**
 
-- [ ] cada requisito está marcado com evidência verificável;
-- [ ] versão do ambiente e resultado do PROBAT/harness estão registrados;
-- [ ] README indica o núcleo mínimo como concluído;
-- [ ] nenhum artefato sensível ou credencial é versionado;
-- [ ] gate completo passa.
+- [x] cada requisito está marcado com evidência verificável;
+- [x] versão do ambiente e resultado do PROBAT/harness estão registrados;
+- [x] README indica o núcleo mínimo como concluído;
+- [x] nenhum artefato sensível ou credencial é versionado;
+- [x] gate completo passa.
 
 **Commit:** `docs(openapi): registra núcleo mínimo validado`
 
