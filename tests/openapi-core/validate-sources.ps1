@@ -8,6 +8,7 @@ $pathPath = Join-Path $repoRoot "src\core\custom.openapi.path.tlpp"
 $docPath = Join-Path $repoRoot "src\core\custom.openapi.document.tlpp"
 $jsonPath = Join-Path $repoRoot "src\core\custom.openapi.json.tlpp"
 $apiPath = Join-Path $repoRoot "examples\openapi-core\custom.openapi.core.api.tlpp"
+$schemaPath = Join-Path $repoRoot "src\core\custom.openapi.schema.tlpp"
 
 function Get-Cp1252Content {
     param(
@@ -203,6 +204,135 @@ foreach ($methodName in @("new", "getTitle", "getDesc", "getVer", "validate")) {
         -Pattern "(?im)^[\t ]*method[\t ]+$methodName[\t ]*\([^\r\n]*\)[^\r\n]*class[\t ]+OApiInfo\b" `
         -Message "Implementação OApiInfo::$methodName ausente."
 }
+
+if (-not (Test-Path -LiteralPath $schemaPath -PathType Leaf)) {
+    throw "Fonte OApiSchema não encontrado: $schemaPath"
+}
+
+$schemaContent = Get-Cp1252Content -Path $schemaPath
+$schemaIncludes = [regex]::Matches(
+    $schemaContent,
+    '(?im)^[\t ]*#include[\t ]+["''](?<name>[^"'']+)["''][\t ]*\r?$'
+)
+$schemaExpectedIncludes = @("tlpp-core.th", "totvs.ch")
+
+if ($schemaIncludes.Count -lt $schemaExpectedIncludes.Count) {
+    throw "Includes obrigatórios ausentes no fonte OApiSchema."
+}
+
+for ($index = 0; $index -lt $schemaExpectedIncludes.Count; $index++) {
+    if ($schemaIncludes[$index].Groups["name"].Value -cne $schemaExpectedIncludes[$index]) {
+        throw "Ordem de includes inválida no OApiSchema: esperado '$($schemaExpectedIncludes[$index])' na posição $($index + 1)."
+    }
+}
+
+Assert-Match -Content $schemaContent `
+    -Pattern '(?m)^[\t ]*namespace[\t ]+custom\.openapi\.core[\t ]*\r?$' `
+    -Message "Namespace custom.openapi.core ausente no OApiSchema."
+Assert-Match -Content $schemaContent `
+    -Pattern '(?im)^[\t ]*class[\t ]+OApiSchema\b' `
+    -Message "Classe OApiSchema ausente."
+
+$schemaDocs = @{}
+
+foreach ($methodName in @("new", "getKind", "addProp", "getProps", "setItems", "getItems", "setRef", "getRef", "validate")) {
+    $methodMatch = [regex]::Match(
+        $schemaContent,
+        "(?is)(?<doc>/\*/\{Protheus\.doc\}[\t ]+OApiSchema::$methodName\b.*?\*/)[\t \r\n]*method[\t ]+$methodName[\t ]*\("
+    )
+
+    if (-not $methodMatch.Success) {
+        throw "ProtheusDOC obrigatório ausente para OApiSchema::$methodName."
+    }
+
+    $schemaDocs[$methodName] = $methodMatch.Groups["doc"].Value
+
+    foreach ($pattern in @(
+        '(?im)^[\t ]*@type[\t ]+method\b',
+        '(?im)^[\t ]*@author[\t ]+Dirlei Silva\b',
+        '(?im)^[\t ]*@since[\t ]+2026-08-26\b'
+    )) {
+        Assert-Match -Content $schemaDocs[$methodName] `
+            -Pattern $pattern `
+            -Message "ProtheusDOC incompleto para OApiSchema::${methodName}: $pattern"
+    }
+}
+
+foreach ($pattern in @(
+    '(?im)^[\t ]*@param[\t ]+cKind,[\t ]+character,[\t ]+[^\r\n]+\r?$',
+    '(?im)^[\t ]*@return[\t ]+object,[\t ]+[^\r\n]+\r?$'
+)) {
+    Assert-Match -Content $schemaDocs["new"] `
+        -Pattern $pattern `
+        -Message "ProtheusDOC incompleto para OApiSchema::new: $pattern"
+}
+
+foreach ($methodName in @("getKind", "getRef")) {
+    Assert-Match -Content $schemaDocs[$methodName] `
+        -Pattern '(?im)^[\t ]*@return[\t ]+character,[\t ]+[^\r\n]+\r?$' `
+        -Message "@return character ausente para OApiSchema::$methodName."
+}
+
+foreach ($pattern in @(
+    '(?im)^[\t ]*@param[\t ]+cName,[\t ]+character,[\t ]+[^\r\n]+\r?$',
+    '(?im)^[\t ]*@param[\t ]+oSchema,[\t ]+object,[\t ]+[^\r\n]+\r?$',
+    '(?im)^[\t ]*@param[\t ]+lReq,[\t ]+logical,[\t ]+[^\r\n]+\r?$',
+    '(?im)^[\t ]*@return[\t ]+object,[\t ]+[^\r\n]+\r?$'
+)) {
+    Assert-Match -Content $schemaDocs["addProp"] `
+        -Pattern $pattern `
+        -Message "ProtheusDOC incompleto para OApiSchema::addProp: $pattern"
+}
+
+Assert-Match -Content $schemaDocs["getProps"] `
+    -Pattern '(?im)^[\t ]*@return[\t ]+array,[\t ]+[^\r\n]+\r?$' `
+    -Message "@return array ausente para OApiSchema::getProps."
+
+foreach ($pattern in @(
+    '(?im)^[\t ]*@param[\t ]+oSchema,[\t ]+object,[\t ]+[^\r\n]+\r?$',
+    '(?im)^[\t ]*@return[\t ]+object,[\t ]+[^\r\n]+\r?$'
+)) {
+    Assert-Match -Content $schemaDocs["setItems"] `
+        -Pattern $pattern `
+        -Message "ProtheusDOC incompleto para OApiSchema::setItems: $pattern"
+}
+
+Assert-Match -Content $schemaDocs["getItems"] `
+    -Pattern '(?im)^[\t ]*@return[\t ]+object,[\t ]+[^\r\n]+\r?$' `
+    -Message "@return object ausente para OApiSchema::getItems."
+
+foreach ($pattern in @(
+    '(?im)^[\t ]*@param[\t ]+cName,[\t ]+character,[\t ]+[^\r\n]+\r?$',
+    '(?im)^[\t ]*@return[\t ]+object,[\t ]+[^\r\n]+\r?$'
+)) {
+    Assert-Match -Content $schemaDocs["setRef"] `
+        -Pattern $pattern `
+        -Message "ProtheusDOC incompleto para OApiSchema::setRef: $pattern"
+}
+
+Assert-Match -Content $schemaDocs["validate"] `
+    -Pattern '(?im)^[\t ]*@return[\t ]+array,[\t ]+[^\r\n]+\r?$' `
+    -Message "@return array ausente para OApiSchema::validate."
+
+Assert-Match -Content $schemaContent `
+    -Pattern '(?is)/\*/\{Protheus\.doc\}[\t ]+OApiSchema\b.*?@type[\t ]+class\b.*?@author[\t ]+Dirlei Silva\b.*?@since[\t ]+2026-08-26\b.*?\*/[\t \r\n]*class[\t ]+OApiSchema\b' `
+    -Message "ProtheusDOC obrigatório ausente para a classe OApiSchema."
+
+$schemaValidation = [regex]::Replace($schemaContent, '(?s)/\*.*?\*/', '')
+$schemaValidation = [regex]::Replace($schemaValidation, '(?m)//[^\r\n]*', '')
+
+foreach ($methodName in @("new", "getKind", "addProp", "getProps", "setItems", "getItems", "setRef", "getRef", "validate")) {
+    Assert-Match -Content $schemaValidation `
+        -Pattern "(?im)^[\t ]*public[\t ]+method[\t ]+$methodName[\t ]*\(" `
+        -Message "Método público OApiSchema::$methodName ausente na declaração da classe."
+    Assert-Match -Content $schemaValidation `
+        -Pattern "(?im)^[\t ]*method[\t ]+$methodName[\t ]*\([^\r\n]*\)[^\r\n]*class[\t ]+OApiSchema\b" `
+        -Message "Implementação OApiSchema::$methodName ausente."
+}
+
+Assert-Match -Content $schemaValidation `
+    -Pattern '(?im)^[\t ]*Static[\t ]+Function[\t ]+SchNameOk[\t ]*\(' `
+    -Message "Função auxiliar privada SchNameOk ausente no OApiSchema."
 
 if (-not (Test-Path -LiteralPath $respPath -PathType Leaf)) {
     throw "Fonte OApiResp não encontrado: $respPath"

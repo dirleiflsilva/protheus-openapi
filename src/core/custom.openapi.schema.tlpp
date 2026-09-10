@@ -1,0 +1,252 @@
+#include "tlpp-core.th"
+#include "totvs.ch"
+
+namespace custom.openapi.core
+
+/*/{Protheus.doc} OApiSchema
+    Representa um schema OpenAPI primitivo, objeto, array ou referência.
+    @type class
+    @author Dirlei Silva
+    @since 2026-08-26
+*/
+class OApiSchema
+    private data cKind  as character
+    private data aProps as array
+    private data oItems as object
+    private data cRef   as character
+
+    public method new(cKind as character) as object
+    public method getKind() as character
+    public method addProp(cName as character, oSchema as object, lReq as logical) as object
+    public method getProps() as array
+    public method setItems(oSchema as object) as object
+    public method getItems() as object
+    public method setRef(cName as character) as object
+    public method getRef() as character
+    public method validate() as array
+endclass
+
+/*/{Protheus.doc} OApiSchema::new
+    Inicializa o schema com um discriminante suportado.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-26
+    @param cKind, character, Discriminante do schema: string, integer, number, boolean, object, array ou ref
+    @return object, Instância inicializada de OApiSchema
+*/
+method new(cKind as character) as object class OApiSchema
+
+    Local cType := Lower(AllTrim(cKind)) as Character
+
+    If cType != "string" .And. ;
+       cType != "integer" .And. ;
+       cType != "number" .And. ;
+       cType != "boolean" .And. ;
+       cType != "object" .And. ;
+       cType != "array" .And. ;
+       cType != "ref"
+        UserException("Tipo de schema OpenAPI não suportado: " + cKind + ".")
+    EndIf
+
+    ::cKind  := cType
+    ::aProps := {}
+    ::oItems := Nil
+    ::cRef   := ""
+
+return self
+
+/*/{Protheus.doc} OApiSchema::getKind
+    Retorna o discriminante normalizado do schema.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-26
+    @return character, Discriminante normalizado do schema
+*/
+method getKind() as character class OApiSchema
+return ::cKind
+
+/*/{Protheus.doc} OApiSchema::addProp
+    Inclui uma propriedade quando o schema é do tipo object e o nome ainda não existe.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-26
+    @param cName, character, Nome da propriedade
+    @param oSchema, object, Schema da propriedade
+    @param lReq, logical, Indica se a propriedade é obrigatória
+    @return object, Própria instância de OApiSchema
+*/
+method addProp(cName as character, oSchema as object, lReq as logical) as object class OApiSchema
+
+    Local nProp := 0 as Numeric
+
+    If ::cKind != "object"
+        UserException("addProp() disponível somente para schemas do tipo object.")
+    EndIf
+
+    For nProp := 1 To Len(::aProps)
+        If ::aProps[nProp][1] == cName
+            UserException("Propriedade duplicada: " + cName + ".")
+        EndIf
+    Next nProp
+
+    AAdd(::aProps, {cName, oSchema, lReq})
+
+return self
+
+/*/{Protheus.doc} OApiSchema::getProps
+    Retorna uma cópia rasa das propriedades do schema object.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-26
+    @return array, Cópia das propriedades incluídas no schema
+*/
+method getProps() as array class OApiSchema
+return AClone(::aProps)
+
+/*/{Protheus.doc} OApiSchema::setItems
+    Define o schema dos items quando o schema é do tipo array e ainda não foi definido.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-26
+    @param oSchema, object, Schema dos items do array
+    @return object, Própria instância de OApiSchema
+*/
+method setItems(oSchema as object) as object class OApiSchema
+
+    If ::cKind != "array"
+        UserException("setItems() disponível somente para schemas do tipo array.")
+    EndIf
+
+    If ::oItems != Nil
+        UserException("Items do schema array já definidos.")
+    EndIf
+
+    ::oItems := oSchema
+
+return self
+
+/*/{Protheus.doc} OApiSchema::getItems
+    Retorna o schema dos items do schema array.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-26
+    @return object, Schema dos items representado, ou Nil quando ainda não definido
+*/
+method getItems() as object class OApiSchema
+return ::oItems
+
+/*/{Protheus.doc} OApiSchema::setRef
+    Define o nome do componente referenciado quando o schema é do tipo ref e ainda não foi definido.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-26
+    @param cName, character, Nome do componente em components/schemas
+    @return object, Própria instância de OApiSchema
+*/
+method setRef(cName as character) as object class OApiSchema
+
+    Local cTrim := AllTrim(cName) as Character
+
+    If ::cKind != "ref"
+        UserException("setRef() disponível somente para schemas do tipo ref.")
+    EndIf
+
+    If !Empty(::cRef)
+        UserException("Referência do schema já definida.")
+    EndIf
+
+    If !SchNameOk(cTrim)
+        UserException("Nome de referência OpenAPI inválido: " + cName + ".")
+    EndIf
+
+    ::cRef := cTrim
+
+return self
+
+/*/{Protheus.doc} OApiSchema::getRef
+    Retorna o nome do componente referenciado pelo schema ref.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-26
+    @return character, Nome do componente referenciado
+*/
+method getRef() as character class OApiSchema
+return ::cRef
+
+/*/{Protheus.doc} OApiSchema::validate
+    Retorna todas as pendências estruturais conhecidas do schema, incluindo propriedades e items aninhados.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-26
+    @return array, Pendências encontradas no schema
+*/
+method validate() as array class OApiSchema
+
+    Local aPend  := {} as Array
+    Local aCPend := {} as Array
+    Local nProp  := 0 as Numeric
+    Local nPend  := 0 as Numeric
+
+    If ::cKind == "object"
+        If Empty(::aProps)
+            AAdd(aPend, "Schema object sem propriedades.")
+        Else
+            For nProp := 1 To Len(::aProps)
+                aCPend := ::aProps[nProp][2]:validate()
+
+                For nPend := 1 To Len(aCPend)
+                    AAdd(aPend, "Propriedade " + ::aProps[nProp][1] + ": " + aCPend[nPend])
+                Next nPend
+            Next nProp
+        EndIf
+    ElseIf ::cKind == "array"
+        If ::oItems == Nil
+            AAdd(aPend, "Schema array sem items.")
+        Else
+            aCPend := ::oItems:validate()
+
+            For nPend := 1 To Len(aCPend)
+                AAdd(aPend, "Item: " + aCPend[nPend])
+            Next nPend
+        EndIf
+    ElseIf ::cKind == "ref"
+        If Empty(::cRef)
+            AAdd(aPend, "Schema ref sem nome.")
+        EndIf
+    EndIf
+
+return aPend
+
+/*/{Protheus.doc} SchNameOk
+    Valida se um nome de componente ou referência OpenAPI usa somente o conjunto de caracteres permitido.
+    @type function
+    @author Dirlei Silva
+    @since 2026-08-26
+    @param cName, character, Nome a ser validado
+    @return logical, Indica se o nome é não vazio e usa somente letras ASCII, números, ponto, hífen ou sublinhado
+*/
+Static Function SchNameOk(cName as Character) as Logical
+
+    Local cChar := "" as Character
+    Local nChar := 0 as Numeric
+    Local lOk   := .T. as Logical
+
+    If Empty(cName)
+        lOk := .F.
+    Else
+        For nChar := 1 To Len(cName)
+            cChar := SubStr(cName, nChar, 1)
+
+            If !(cChar >= "A" .And. cChar <= "Z") .And. ;
+               !(cChar >= "a" .And. cChar <= "z") .And. ;
+               !(cChar >= "0" .And. cChar <= "9") .And. ;
+               cChar != "." .And. ;
+               cChar != "-" .And. ;
+               cChar != "_"
+                lOk := .F.
+                Exit
+            EndIf
+        Next nChar
+    EndIf
+
+Return lOk
