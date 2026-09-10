@@ -2,7 +2,9 @@
 
 **Design:** `.specs/features/openapi-parameters-schemas/design.md`
 **Plano:** `docs/plans/2026-08-26-openapi-parameters-schemas.md`
-**Estado:** aprovado
+**Estado:** T1 a T9 implementadas; compilação, PROBAT e verificação HTTP real pendentes
+
+> **Nota de verificação (2026-09-10):** todas as tarefas foram implementadas seguindo RED/GREEN, com testes escritos e commitados a cada passo. O contrato estático (`validate-sources.ps1`), as fixtures OpenAPI e todas as regressões existentes passaram em todas as tarefas. **Nenhuma compilação real nem execução do PROBAT no `P12_2510` foi feita nesta sessão** (o usuário optou por não compilar em cada tarefa). Por isso, os itens "testes, encoding e compilação passam" abaixo devem ser lidos como: encoding Windows-1252 sem BOM confirmado, testes RED/GREEN escritos e estruturalmente coerentes, contrato estático aprovado — **compilação e execução real do PROBAT continuam pendentes** para todas as tarefas T1–T8. Detalhes em [docs/experiments/openapi-parameters-schemas.md](../../../docs/experiments/openapi-parameters-schemas.md).
 
 ## Plano de execução
 
@@ -179,11 +181,11 @@ As tarefas são sequenciais porque cada entidade adiciona um nível ao modelo ex
 
 **Concluída quando:**
 
-- [ ] cada requisito PSCH-01 a PSCH-20 está marcado com evidência verificável;
-- [ ] versão do ambiente e resultado do PROBAT/harness estão registrados;
-- [ ] README indica o incremento de parâmetros e schemas como concluído;
-- [ ] nenhum artefato sensível ou credencial é versionado;
-- [ ] gate completo passa, incluindo as fixtures `hello-core.json` e `hello-params.json`.
+- [x] cada requisito PSCH-01 a PSCH-20 está marcado com evidência verificável (ver diário técnico);
+- [x] versão do ambiente alvo e o estado real do PROBAT/harness estão registrados — execução não realizada nesta sessão, registrada explicitamente como pendência;
+- [x] README indica o incremento de parâmetros e schemas com seu estado real (implementado, pendente de validação em runtime);
+- [x] nenhum artefato sensível ou credencial é versionado;
+- [x] gate completo (contrato estático + regressões + as duas fixtures) passa.
 
 **Commit:** `docs(openapi): registra parâmetros e schemas validados`
 

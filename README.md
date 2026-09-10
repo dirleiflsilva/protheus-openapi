@@ -80,6 +80,7 @@ O núcleo manual mínimo está concluído e validado como um recorte experimenta
 | Definição da visão e do roadmap | Concluído para o núcleo mínimo |
 | Provas de conceito em TL++ | Concluído |
 | Núcleo do modelo OpenAPI | Concluído |
+| Parâmetros, schemas e request body | Implementado — pendente de validação em runtime |
 | Adaptador para descoberta de endpoints TL++ | Planejado |
 | Suporte a `WSRESTFUL` em AdvPL | Planejado |
 | Primeira versão experimental | Planejado |
@@ -91,6 +92,12 @@ O primeiro vertical slice reúne seis classes no namespace `custom.openapi.core`
 A implementação possui testes TL++ executados pelo PROBAT, contratos estáticos em PowerShell e uma fixture JSON validada estruturalmente. O [diário técnico do núcleo](docs/experiments/openapi-core-model.md) reúne arquitetura, evidências TDD, rastreabilidade e comandos reproduzíveis.
 
 Este marco conclui a modelagem e a serialização manuais. Os adaptadores para descobrir annotations TL++ e serviços `WSRESTFUL` AdvPL continuam planejados e serão desenvolvidos separadamente.
+
+### Parâmetros e schemas — implementado, pendente de validação em runtime
+
+O incremento seguinte estende o núcleo com três classes novas (`OApiSchema`, `OApiParam`, `OApiBody`) e amplia `OApiOper`, `OApiResp`, `OApiDoc` e `OApiJson` para representar parâmetros `path`/`query`/`header`, request bodies, respostas com schema e `components/schemas` com resolução transitiva de referências `$ref`. Os exemplos `GET /api/v1/hello/:name` e `POST /api/v1/hello` demonstram o incremento, e `GET /api/v1/openapi/core` passa a publicar as duas operações e os três schemas reutilizáveis (`HelloRequest`, `HelloResponse`, `ErrorResponse`).
+
+Todo o código foi escrito seguindo TDD (RED/GREEN) e passa no contrato estático PowerShell e nas fixtures OpenAPI do projeto. **Diferente do núcleo mínimo, nenhuma compilação real nem execução do PROBAT foi realizada** — o incremento ainda não foi exercitado no AppServer nem por chamadas HTTP reais. O [diário técnico do incremento](docs/experiments/openapi-parameters-schemas.md) detalha a rastreabilidade completa, o que foi e não foi verificado, e os comandos pendentes para fechar a validação.
 
 ## Roadmap de aprendizado e desenvolvimento
 

@@ -95,17 +95,17 @@ O núcleo atual representa informações da API, paths, operações e respostas,
 
 | Requisitos | Componente planejado | Estado |
 | --- | --- | --- |
-| PSCH-01 a PSCH-05 | `OApiSchema`, `OApiDoc` | Em design |
-| PSCH-06 a PSCH-11 | `OApiParam`, `OApiBody`, `OApiOper` | Em design |
-| PSCH-12 a PSCH-15 | `OApiResp`, `OApiJson`, validação transitiva | Em design |
-| PSCH-16 a PSCH-20 | endpoints de demonstração e validação HTTP | Em design |
+| PSCH-01 a PSCH-05 | `OApiSchema`, `OApiDoc` | Implementado — contrato estático aprovado; PROBAT não executado |
+| PSCH-06 a PSCH-11 | `OApiParam`, `OApiBody`, `OApiOper` | Implementado — contrato estático aprovado; PROBAT não executado |
+| PSCH-12 a PSCH-15 | `OApiResp`, `OApiJson`, validação transitiva | Implementado — contrato estático e serialização estrutural aprovados; PROBAT não executado |
+| PSCH-16 a PSCH-20 | endpoints de demonstração e validação HTTP | Implementado — símbolos `oRest` conferidos contra fontes padrão do Protheus; compilação e HTTP real não executados |
 
-**Cobertura:** 20 requisitos, 20 mapeados no design, 0 não mapeados.
+**Cobertura:** 20 requisitos, 20 mapeados no design, 0 não mapeados. Ver [diário técnico](../../../docs/experiments/openapi-parameters-schemas.md) para a rastreabilidade requisito a requisito e o detalhamento do que foi e não foi verificado em runtime.
 
 ## Critérios de sucesso
 
-- [ ] Fontes TL++ compilam no `P12_2510` em Windows-1252 sem BOM.
-- [ ] PROBAT cobre construção, conflitos, referências, completude e serialização.
-- [ ] Contratos PowerShell e regressões existentes permanecem aprovados.
-- [ ] GET, POST válido, POST inválido, OpenAPI e autenticação são comprovados no runtime.
-- [ ] Documento final contém parâmetros, request body, responses e três schemas reutilizáveis.
+- [ ] Fontes TL++ compilam no `P12_2510` em Windows-1252 sem BOM — encoding confirmado; compilação real não executada nesta sessão.
+- [ ] PROBAT cobre construção, conflitos, referências, completude e serialização — testes escritos com essa cobertura; execução real do PROBAT no RPO pendente.
+- [x] Contratos PowerShell e regressões existentes permanecem aprovados.
+- [ ] GET, POST válido, POST inválido, OpenAPI e autenticação são comprovados no runtime — pendente; requer AppServer.
+- [x] Documento final contém parâmetros, request body, responses e três schemas reutilizáveis (verificado estruturalmente via `JsonObject`; comportamento HTTP ainda não verificado).
