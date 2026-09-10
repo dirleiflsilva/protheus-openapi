@@ -1,0 +1,95 @@
+#include "tlpp-core.th"
+#include "totvs.ch"
+
+namespace custom.openapi.core
+
+/*/{Protheus.doc} OApiBody
+    Representa o request body de uma operação no documento OpenAPI.
+    @type class
+    @author Dirlei Silva
+    @since 2026-08-26
+*/
+class OApiBody
+    private data lReq    as logical
+    private data oSchema as object
+    private data cDesc   as character
+
+    public method new(lReq as logical, oSchema as object, cDesc as character) as object
+    public method getReq() as logical
+    public method getSchema() as object
+    public method getDesc() as character
+    public method validate() as array
+endclass
+
+/*/{Protheus.doc} OApiBody::new
+    Inicializa o request body sem alterar os valores recebidos.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-26
+    @param lReq, logical, Indica se o request body é obrigatório
+    @param oSchema, object, Schema do request body
+    @param cDesc, character, Descrição do request body
+    @return object, Instância inicializada de OApiBody
+*/
+method new(lReq as logical, oSchema as object, cDesc as character) as object class OApiBody
+
+    ::lReq    := lReq
+    ::oSchema := oSchema
+    ::cDesc   := cDesc
+
+return self
+
+/*/{Protheus.doc} OApiBody::getReq
+    Retorna se o request body é obrigatório.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-26
+    @return logical, Indica se o request body é obrigatório
+*/
+method getReq() as logical class OApiBody
+return ::lReq
+
+/*/{Protheus.doc} OApiBody::getSchema
+    Retorna o schema do request body.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-26
+    @return object, Schema representado para o request body, ou Nil quando ainda não definido
+*/
+method getSchema() as object class OApiBody
+return ::oSchema
+
+/*/{Protheus.doc} OApiBody::getDesc
+    Retorna a descrição do request body.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-26
+    @return character, Descrição informada para o request body
+*/
+method getDesc() as character class OApiBody
+return ::cDesc
+
+/*/{Protheus.doc} OApiBody::validate
+    Retorna todas as pendências conhecidas do request body, incluindo o schema associado.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-26
+    @return array, Pendências encontradas no request body
+*/
+method validate() as array class OApiBody
+
+    Local aPend  := {} as Array
+    Local aSPend := {} as Array
+    Local nPend  := 0 as Numeric
+
+    If ::oSchema == Nil
+        AAdd(aPend, "Request body sem schema.")
+    Else
+        aSPend := ::oSchema:validate()
+
+        For nPend := 1 To Len(aSPend)
+            AAdd(aPend, "Schema do request body: " + aSPend[nPend])
+        Next nPend
+    EndIf
+
+return aPend

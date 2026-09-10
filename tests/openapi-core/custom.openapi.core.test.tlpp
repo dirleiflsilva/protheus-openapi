@@ -127,6 +127,10 @@ User Function OApiTst() as Logical
     Local aParPend  := {} as Array
     Local cInErr    := "" as Character
     Local lInErr    := .F. as Logical
+    Local oBodyA     as Object
+    Local oBodyE     as Object
+    Local oBodySch   as Object
+    Local aBodyPend := {} as Array
 
     assertEquals(.T., .T., "O harness PROBAT deve aceitar valores iguais.")
 
@@ -663,7 +667,8 @@ User Function OApiTst() as Logical
     assertEquals("string", oParamA:getSchema():getKind(), "O schema do parâmetro deve ser preservado.")
     assertEquals(0, Len(oParamA:validate()), "Parâmetro path obrigatório e válido não deve gerar pendências.")
 
-    assertEquals("header", OApiParam():new("X-Test", "HEADER", .F., oParStrSch, ""):getIn(), "A localização header deve ser normalizada para minúsculas.")
+    oParamBad := OApiParam():new("X-Test", "HEADER", .F., oParStrSch, "")
+    assertEquals("header", oParamBad:getIn(), "A localização header deve ser normalizada para minúsculas.")
 
     Try
         oParamBad := OApiParam():new("token", "cookie", .T., oParStrSch, "")
@@ -707,6 +712,31 @@ User Function OApiTst() as Logical
     assertEquals(1, Len(aParPend), "Pendência do schema do parâmetro deve ser propagada.")
     If Len(aParPend) >= 1
         assertEquals("Schema do parâmetro filtro: Schema object sem propriedades.", aParPend[1], "A pendência deve manter o contexto do parâmetro.")
+    EndIf
+
+    oBodySch := OApiSchema():new("object")
+    oBodySch:addProp("name", OApiSchema():new("string"), .T.)
+    oBodyA := OApiBody():new(.T., oBodySch, "Corpo da requisição.")
+
+    assertEquals(.T., oBodyA:getReq(), "A obrigatoriedade informada deve ser preservada.")
+    assertEquals("object", oBodyA:getSchema():getKind(), "O schema informado deve ser preservado.")
+    assertEquals("Corpo da requisição.", oBodyA:getDesc(), "A descrição informada deve ser preservada.")
+    assertEquals(0, Len(oBodyA:validate()), "Request body com schema válido não deve gerar pendências.")
+
+    oBodyE := OApiBody():new(.F., Nil, "")
+    aBodyPend := oBodyE:validate()
+
+    assertEquals(1, Len(aBodyPend), "Request body sem schema deve gerar uma pendência.")
+    If Len(aBodyPend) >= 1
+        assertEquals("Request body sem schema.", aBodyPend[1], "A pendência deve identificar a ausência do schema.")
+    EndIf
+
+    oBodyE := OApiBody():new(.F., OApiSchema():new("object"), "")
+    aBodyPend := oBodyE:validate()
+
+    assertEquals(1, Len(aBodyPend), "Pendência do schema do request body deve ser propagada.")
+    If Len(aBodyPend) >= 1
+        assertEquals("Schema do request body: Schema object sem propriedades.", aBodyPend[1], "A pendência deve manter o contexto do request body.")
     EndIf
 
 Return .T.
