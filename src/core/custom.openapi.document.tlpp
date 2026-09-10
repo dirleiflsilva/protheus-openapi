@@ -13,12 +13,15 @@ class OApiDoc
     private data cOpenApi as character
     private data oInfo    as object
     private data aPaths   as array
+    private data aSchemas as array
 
     public method new(oInfo as object) as object
     public method getOpenApi() as character
     public method getInfo() as object
     public method getPaths() as array
     public method addPath(oPath as object) as object
+    public method getSchemas() as array
+    public method addSchema(cName as character, oSchema as object) as object
     public method validate() as array
 endclass
 
@@ -35,6 +38,7 @@ method new(oInfo as object) as object class OApiDoc
     ::cOpenApi := "3.0.3"
     ::oInfo    := oInfo
     ::aPaths   := {}
+    ::aSchemas := {}
 
 return self
 
@@ -91,8 +95,46 @@ method addPath(oPath as object) as object class OApiDoc
 
 return self
 
+/*/{Protheus.doc} OApiDoc::getSchemas
+    Retorna uma cópia rasa dos componentes reutilizáveis registrados no documento.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-26
+    @return array, Cópia dos componentes registrados no documento
+*/
+method getSchemas() as array class OApiDoc
+return AClone(::aSchemas)
+
+/*/{Protheus.doc} OApiDoc::addSchema
+    Registra um componente reutilizável quando seu nome é válido e ainda não está em uso.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-26
+    @param cName, character, Nome do componente em components/schemas
+    @param oSchema, object, Schema representado pelo componente
+    @return object, Própria instância de OApiDoc
+*/
+method addSchema(cName as character, oSchema as object) as object class OApiDoc
+
+    Local cTrim   := AllTrim(cName) as Character
+    Local nSchema := 0 as Numeric
+
+    If !DocNameOk(cTrim)
+        UserException("Nome de componente OpenAPI inválido: " + cName + ".")
+    EndIf
+
+    For nSchema := 1 To Len(::aSchemas)
+        If ::aSchemas[nSchema][1] == cTrim
+            UserException("Componente duplicado no documento: " + cTrim + ".")
+        EndIf
+    Next nSchema
+
+    AAdd(::aSchemas, {cTrim, oSchema})
+
+return self
+
 /*/{Protheus.doc} OApiDoc::validate
-    Retorna todas as pendências das informações e dos paths do documento.
+    Retorna todas as pendências das informações, dos paths, dos componentes e das referências do documento.
     @type method
     @author Dirlei Silva
     @since 2026-08-25
@@ -100,12 +142,27 @@ return self
 */
 method validate() as array class OApiDoc
 
-    Local aPend  := {} as Array
-    Local aIPend := {} as Array
-    Local aPPend := {} as Array
-    Local nInfo  := 0 as Numeric
-    Local nPath  := 0 as Numeric
-    Local nPend  := 0 as Numeric
+    Local aPend    := {} as Array
+    Local aIPend   := {} as Array
+    Local aPPend   := {} as Array
+    Local aCPend   := {} as Array
+    Local aRefPend := {} as Array
+    Local aOpers   := {} as Array
+    Local aParams  := {} as Array
+    Local aResps   := {} as Array
+    Local cPath    := "" as Character
+    Local cMethod  := "" as Character
+    Local oOper    as Object
+    Local oParam   as Object
+    Local oBody    as Object
+    Local oResp    as Object
+    Local nInfo    := 0 as Numeric
+    Local nPath    := 0 as Numeric
+    Local nOper    := 0 as Numeric
+    Local nParam   := 0 as Numeric
+    Local nResp    := 0 as Numeric
+    Local nSchema  := 0 as Numeric
+    Local nPend    := 0 as Numeric
 
     aIPend := ::oInfo:validate()
 
@@ -125,4 +182,161 @@ method validate() as array class OApiDoc
         Next nPath
     EndIf
 
+    For nSchema := 1 To Len(::aSchemas)
+        aCPend := ::aSchemas[nSchema][2]:validate()
+
+        For nPend := 1 To Len(aCPend)
+            AAdd(aPend, "Componente " + ::aSchemas[nSchema][1] + ": " + aCPend[nPend])
+        Next nPend
+    Next nSchema
+
+    For nPath := 1 To Len(::aPaths)
+        cPath  := ::aPaths[nPath]:getPath()
+        aOpers := ::aPaths[nPath]:getOpers()
+
+        For nOper := 1 To Len(aOpers)
+            oOper   := aOpers[nOper]
+            cMethod := oOper:getMethod()
+            aParams := oOper:getParams()
+
+            For nParam := 1 To Len(aParams)
+                oParam   := aParams[nParam]
+                aRefPend := RefPend(;
+                    oParam:getSchema(),;
+                    ::aSchemas,;
+                    "Path " + cPath + ": Operação " + cMethod + ", parâmetro " + oParam:getIn() + " " + oParam:getName();
+                )
+
+                For nPend := 1 To Len(aRefPend)
+                    AAdd(aPend, aRefPend[nPend])
+                Next nPend
+            Next nParam
+
+            oBody := oOper:getBody()
+
+            If oBody != Nil
+                aRefPend := RefPend(;
+                    oBody:getSchema(),;
+                    ::aSchemas,;
+                    "Path " + cPath + ": Operação " + cMethod + ", request body";
+                )
+
+                For nPend := 1 To Len(aRefPend)
+                    AAdd(aPend, aRefPend[nPend])
+                Next nPend
+            EndIf
+
+            aResps := oOper:getResps()
+
+            For nResp := 1 To Len(aResps)
+                oResp := aResps[nResp]
+
+                If oResp:getSchema() != Nil
+                    aRefPend := RefPend(;
+                        oResp:getSchema(),;
+                        ::aSchemas,;
+                        "Path " + cPath + ": Operação " + cMethod + ", resposta " + oResp:getCode();
+                    )
+
+                    For nPend := 1 To Len(aRefPend)
+                        AAdd(aPend, aRefPend[nPend])
+                    Next nPend
+                EndIf
+            Next nResp
+        Next nOper
+    Next nPath
+
 return aPend
+
+/*/{Protheus.doc} DocNameOk
+    Valida se um nome de componente OpenAPI usa somente o conjunto de caracteres permitido.
+    @type function
+    @author Dirlei Silva
+    @since 2026-08-26
+    @param cName, character, Nome a ser validado
+    @return logical, Indica se o nome é não vazio e usa somente letras ASCII, números, ponto, hífen ou sublinhado
+*/
+Static Function DocNameOk(cName as Character) as Logical
+
+    Local cChar := "" as Character
+    Local nChar := 0 as Numeric
+    Local lOk   := .T. as Logical
+
+    If Empty(cName)
+        lOk := .F.
+    Else
+        For nChar := 1 To Len(cName)
+            cChar := SubStr(cName, nChar, 1)
+
+            If !(cChar >= "A" .And. cChar <= "Z") .And. ;
+               !(cChar >= "a" .And. cChar <= "z") .And. ;
+               !(cChar >= "0" .And. cChar <= "9") .And. ;
+               cChar != "." .And. ;
+               cChar != "-" .And. ;
+               cChar != "_"
+                lOk := .F.
+                Exit
+            EndIf
+        Next nChar
+    EndIf
+
+Return lOk
+
+/*/{Protheus.doc} RefPend
+    Percorre recursivamente um schema e retorna as pendências de referências inexistentes no registro de componentes.
+    @type function
+    @author Dirlei Silva
+    @since 2026-08-26
+    @param oSchema, object, Schema que será percorrido
+    @param aSchemas, array, Registro de componentes do documento
+    @param cContext, character, Contexto acumulado para as mensagens de pendência
+    @return array, Pendências de referências inexistentes encontradas no schema
+*/
+Static Function RefPend(oSchema as object, aSchemas as array, cContext as character) as Array
+
+    Local aPend   := {} as Array
+    Local aProps  := {} as Array
+    Local aCPend  := {} as Array
+    Local cKind   := "" as Character
+    Local cRef    := "" as Character
+    Local nProp   := 0 as Numeric
+    Local nSchema := 0 as Numeric
+    Local nPend   := 0 as Numeric
+    Local lFound  := .F. as Logical
+
+    cKind := oSchema:getKind()
+
+    If cKind == "ref"
+        cRef := oSchema:getRef()
+
+        For nSchema := 1 To Len(aSchemas)
+            If aSchemas[nSchema][1] == cRef
+                lFound := .T.
+                Exit
+            EndIf
+        Next nSchema
+
+        If !lFound
+            AAdd(aPend, cContext + ": referência inexistente: " + cRef + ".")
+        EndIf
+    ElseIf cKind == "object"
+        aProps := oSchema:getProps()
+
+        For nProp := 1 To Len(aProps)
+            aCPend := RefPend(aProps[nProp][2], aSchemas, cContext + ", propriedade " + aProps[nProp][1])
+
+            For nPend := 1 To Len(aCPend)
+                AAdd(aPend, aCPend[nPend])
+            Next nPend
+        Next nProp
+    ElseIf cKind == "array"
+        If oSchema:getItems() != Nil
+            aCPend := RefPend(oSchema:getItems(), aSchemas, cContext + ", item")
+
+            For nPend := 1 To Len(aCPend)
+                AAdd(aPend, aCPend[nPend])
+            Next nPend
+        EndIf
+    EndIf
+
+Return aPend

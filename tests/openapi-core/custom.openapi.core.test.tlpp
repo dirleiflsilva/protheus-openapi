@@ -157,6 +157,42 @@ User Function OApiTst() as Logical
     Local oRespNoSch as Object
     Local oRespSchInv as Object
     Local aRespPend := {} as Array
+    Local oDocC      as Object
+    Local oSchHello  as Object
+    Local aDocSchemas := {} as Array
+    Local cSchemaDupErr  := "" as Character
+    Local lSchemaDupErr  := .F. as Logical
+    Local cSchemaNameErr := "" as Character
+    Local lSchemaNameErr := .F. as Logical
+    Local oDocC2     as Object
+    Local oPathC     as Object
+    Local oOperC     as Object
+    Local aDocPend  := {} as Array
+    Local oDocR      as Object
+    Local oPathR     as Object
+    Local oOperR     as Object
+    Local oRespR     as Object
+    Local oSchRefOk  as Object
+    Local oDocRBad   as Object
+    Local oPathRBad  as Object
+    Local oOperRBad  as Object
+    Local oRespRBad  as Object
+    Local oSchRefBad as Object
+    Local oDocPBad   as Object
+    Local oPathPBad  as Object
+    Local oOperPBad  as Object
+    Local oSchRefP   as Object
+    Local oParRefBad as Object
+    Local oDocBBad   as Object
+    Local oPathBBad  as Object
+    Local oOperBBad2 as Object
+    Local oSchRefB   as Object
+    Local oDocNestBad   as Object
+    Local oPathNestBad  as Object
+    Local oOperNestBad  as Object
+    Local oRespNestBad  as Object
+    Local oSchObjNest   as Object
+    Local oSchRefNest   as Object
 
     assertEquals(.T., .T., "O harness PROBAT deve aceitar valores iguais.")
 
@@ -878,6 +914,137 @@ User Function OApiTst() as Logical
     assertEquals(1, Len(aRespPend), "Pendência do schema da resposta deve ser propagada.")
     If Len(aRespPend) >= 1
         assertEquals("Schema da resposta: Schema object sem propriedades.", aRespPend[1], "A pendência deve manter o contexto da resposta.")
+    EndIf
+
+    oDocC := OApiDoc():new(OApiInfo():new("Hello World API", "API de demonstração do núcleo OpenAPI.", "1.0.0"))
+    oSchHello := OApiSchema():new("object")
+    oSchHello:addProp("message", OApiSchema():new("string"), .T.)
+    oDocC:addSchema("HelloResponse", oSchHello)
+    aDocSchemas := oDocC:getSchemas()
+
+    assertEquals(1, Len(aDocSchemas), "O componente válido deve ser registrado no documento.")
+    If Len(aDocSchemas) >= 1
+        assertEquals("HelloResponse", aDocSchemas[1][1], "O nome do componente deve ser preservado.")
+    EndIf
+
+    Try
+        oDocC:addSchema("HelloResponse", OApiSchema():new("string"))
+    Catch oError
+        lSchemaDupErr := .T.
+        cSchemaDupErr := oError:Description
+    EndTry
+
+    assertEquals(.T., lSchemaDupErr, "Componente com nome duplicado deve falhar imediatamente.")
+    assertEquals("Componente duplicado no documento: HelloResponse.", cSchemaDupErr, "O erro deve diagnosticar o nome duplicado.")
+
+    aDocSchemas := oDocC:getSchemas()
+    assertEquals(1, Len(aDocSchemas), "A falha não deve incluir nem substituir o componente original.")
+
+    Try
+        oDocC:addSchema("Invalid Name!", OApiSchema():new("string"))
+    Catch oError
+        lSchemaNameErr := .T.
+        cSchemaNameErr := oError:Description
+    EndTry
+
+    assertEquals(.T., lSchemaNameErr, "Nome de componente inválido deve falhar imediatamente.")
+    assertEquals("Nome de componente OpenAPI inválido: Invalid Name!.", cSchemaNameErr, "O erro deve diagnosticar o nome inválido.")
+
+    oDocC2 := OApiDoc():new(OApiInfo():new("Hello World API", "API de demonstração do núcleo OpenAPI.", "1.0.0"))
+    oPathC := OApiPath():new("/api/v1/x")
+    oOperC := OApiOper():new("GET", "Consulta", "Consulta um recurso.")
+    oOperC:addResp(OApiResp():new("200", "Recurso retornado com sucesso."))
+    oPathC:addOper(oOperC)
+    oDocC2:addPath(oPathC)
+    oDocC2:addSchema("Empty", OApiSchema():new("object"))
+    aDocPend := oDocC2:validate()
+
+    assertEquals(1, Len(aDocPend), "Pendência estrutural do componente registrado deve ser agregada.")
+    If Len(aDocPend) >= 1
+        assertEquals("Componente Empty: Schema object sem propriedades.", aDocPend[1], "A pendência deve manter o contexto do componente.")
+    EndIf
+
+    oDocR := OApiDoc():new(OApiInfo():new("Hello World API", "API de demonstração do núcleo OpenAPI.", "1.0.0"))
+    oDocR:addSchema("Hello", OApiSchema():new("string"))
+    oPathR := OApiPath():new("/api/v1/hello")
+    oOperR := OApiOper():new("GET", "Consulta", "Consulta a saudação.")
+    oRespR := OApiResp():new("200", "Recurso retornado com sucesso.")
+    oSchRefOk := OApiSchema():new("ref")
+    oSchRefOk:setRef("Hello")
+    oRespR:setSchema(oSchRefOk)
+    oOperR:addResp(oRespR)
+    oPathR:addOper(oOperR)
+    oDocR:addPath(oPathR)
+
+    assertEquals(0, Len(oDocR:validate()), "Referência válida para um componente registrado não deve gerar pendências.")
+
+    oDocRBad := OApiDoc():new(OApiInfo():new("Hello World API", "API de demonstração do núcleo OpenAPI.", "1.0.0"))
+    oPathRBad := OApiPath():new("/api/v1/hello")
+    oOperRBad := OApiOper():new("GET", "Consulta", "Consulta a saudação.")
+    oRespRBad := OApiResp():new("200", "Recurso retornado com sucesso.")
+    oSchRefBad := OApiSchema():new("ref")
+    oSchRefBad:setRef("Missing")
+    oRespRBad:setSchema(oSchRefBad)
+    oOperRBad:addResp(oRespRBad)
+    oPathRBad:addOper(oOperRBad)
+    oDocRBad:addPath(oPathRBad)
+    aDocPend := oDocRBad:validate()
+
+    assertEquals(1, Len(aDocPend), "Referência inexistente no schema da resposta deve gerar uma pendência.")
+    If Len(aDocPend) >= 1
+        assertEquals("Path /api/v1/hello: Operação get, resposta 200: referência inexistente: Missing.", aDocPend[1], "A pendência deve manter o contexto completo até a resposta.")
+    EndIf
+
+    oDocPBad := OApiDoc():new(OApiInfo():new("Hello World API", "API de demonstração do núcleo OpenAPI.", "1.0.0"))
+    oPathPBad := OApiPath():new("/api/v1/item")
+    oOperPBad := OApiOper():new("GET", "Consulta", "Consulta um item.")
+    oOperPBad:addResp(OApiResp():new("200", "Recurso retornado com sucesso."))
+    oSchRefP := OApiSchema():new("ref")
+    oSchRefP:setRef("Missing")
+    oParRefBad := OApiParam():new("id", "path", .T., oSchRefP, "")
+    oOperPBad:addParam(oParRefBad)
+    oPathPBad:addOper(oOperPBad)
+    oDocPBad:addPath(oPathPBad)
+    aDocPend := oDocPBad:validate()
+
+    assertEquals(1, Len(aDocPend), "Referência inexistente no schema do parâmetro deve gerar uma pendência.")
+    If Len(aDocPend) >= 1
+        assertEquals("Path /api/v1/item: Operação get, parâmetro path id: referência inexistente: Missing.", aDocPend[1], "A pendência deve manter o contexto completo até o parâmetro.")
+    EndIf
+
+    oDocBBad := OApiDoc():new(OApiInfo():new("Hello World API", "API de demonstração do núcleo OpenAPI.", "1.0.0"))
+    oPathBBad := OApiPath():new("/api/v1/item")
+    oOperBBad2 := OApiOper():new("POST", "Cria", "Cria um item.")
+    oOperBBad2:addResp(OApiResp():new("201", "Recurso criado com sucesso."))
+    oSchRefB := OApiSchema():new("ref")
+    oSchRefB:setRef("Missing")
+    oOperBBad2:setBody(OApiBody():new(.T., oSchRefB, ""))
+    oPathBBad:addOper(oOperBBad2)
+    oDocBBad:addPath(oPathBBad)
+    aDocPend := oDocBBad:validate()
+
+    assertEquals(1, Len(aDocPend), "Referência inexistente no schema do request body deve gerar uma pendência.")
+    If Len(aDocPend) >= 1
+        assertEquals("Path /api/v1/item: Operação post, request body: referência inexistente: Missing.", aDocPend[1], "A pendência deve manter o contexto completo até o request body.")
+    EndIf
+
+    oDocNestBad := OApiDoc():new(OApiInfo():new("Hello World API", "API de demonstração do núcleo OpenAPI.", "1.0.0"))
+    oPathNestBad := OApiPath():new("/api/v1/nested")
+    oOperNestBad := OApiOper():new("GET", "Consulta", "Consulta um recurso aninhado.")
+    oRespNestBad := OApiResp():new("200", "Recurso retornado com sucesso.")
+    oSchObjNest := OApiSchema():new("object")
+    oSchRefNest := OApiSchema():new("ref")
+    oSchRefNest:setRef("Missing")
+    oSchObjNest:addProp("child", oSchRefNest, .T.)
+    oRespNestBad:setSchema(oSchObjNest)
+    oOperNestBad:addResp(oRespNestBad)
+    oPathNestBad:addOper(oOperNestBad)
+    oDocNestBad:addPath(oPathNestBad)
+    aDocPend := oDocNestBad:validate()
+
+    assertEquals(1, Len(aDocPend), "Referência inexistente em propriedade aninhada deve gerar uma pendência.")
+    If Len(aDocPend) >= 1
+        assertEquals("Path /api/v1/nested: Operação get, resposta 200, propriedade child: referência inexistente: Missing.", aDocPend[1], "A pendência deve manter o contexto completo até a propriedade aninhada.")
     EndIf
 
 Return .T.
