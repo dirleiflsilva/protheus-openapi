@@ -19,12 +19,24 @@ using namespace custom.openapi.core
 )
 User Function OApiCore() as Logical
 
-    Local oInfo  as Object
-    Local oResp  as Object
-    Local oOper  as Object
-    Local oPath  as Object
-    Local oDoc   as Object
-    Local oJson  as Object
+    Local oInfo         as Object
+    Local oDoc          as Object
+    Local oJson          as Object
+    Local oSchHelloReq   as Object
+    Local oSchHelloResp  as Object
+    Local oSchError      as Object
+    Local oParamName     as Object
+    Local oParamLang     as Object
+    Local oGet           as Object
+    Local oRespGet       as Object
+    Local oSchRefGet     as Object
+    Local oPost          as Object
+    Local oSchRefBody    as Object
+    Local oRespPost200   as Object
+    Local oSchRefPost200 as Object
+    Local oRespPost400   as Object
+    Local oSchRefPost400 as Object
+    Local oPathHello     as Object
     Local jError as Json
     Local cResp := "" as Character
 
@@ -34,17 +46,59 @@ User Function OApiCore() as Logical
             "API de demonstração do núcleo OpenAPI.",;
             "1.0.0";
         )
-        oResp := OApiResp():new("200", "Hello World retornado com sucesso.")
-        oOper := OApiOper():new(;
+        oDoc := OApiDoc():new(oInfo)
+
+        oSchHelloReq := OApiSchema():new("object")
+        oSchHelloReq:addProp("name", OApiSchema():new("string"), .T.)
+        oSchHelloReq:addProp("language", OApiSchema():new("string"), .F.)
+        oDoc:addSchema("HelloRequest", oSchHelloReq)
+
+        oSchHelloResp := OApiSchema():new("object")
+        oSchHelloResp:addProp("message", OApiSchema():new("string"), .T.)
+        oSchHelloResp:addProp("language", OApiSchema():new("string"), .T.)
+        oSchHelloResp:addProp("status", OApiSchema():new("string"), .T.)
+        oDoc:addSchema("HelloResponse", oSchHelloResp)
+
+        oSchError := OApiSchema():new("object")
+        oSchError:addProp("message", OApiSchema():new("string"), .T.)
+        oSchError:addProp("status", OApiSchema():new("string"), .T.)
+        oDoc:addSchema("ErrorResponse", oSchError)
+
+        oParamName := OApiParam():new("name", "path", .T., OApiSchema():new("string"), "Nome usado na saudação.")
+        oParamLang := OApiParam():new("language", "query", .F., OApiSchema():new("string"), "Idioma da saudação.")
+        oGet := OApiOper():new(;
             "GET",;
             "Hello World",;
-            "Retorna uma mensagem Hello World gerada por um endpoint TL++.";
+            "Retorna uma saudação personalizada usando o parâmetro de path name e o parâmetro opcional de query language.";
         )
-        oOper:addResp(oResp)
-        oPath := OApiPath():new("/api/v1/hello")
-        oPath:addOper(oOper)
-        oDoc := OApiDoc():new(oInfo)
-        oDoc:addPath(oPath)
+        oGet:addParam(oParamName)
+        oGet:addParam(oParamLang)
+        oRespGet := OApiResp():new("200", "Saudação retornada com sucesso.")
+        oSchRefGet := OApiSchema():new("ref")
+        oSchRefGet:setRef("HelloResponse")
+        oRespGet:setSchema(oSchRefGet)
+        oGet:addResp(oRespGet)
+
+        oPost := OApiOper():new("POST", "Cria saudação", "Cria uma nova saudação a partir de um HelloRequest.")
+        oSchRefBody := OApiSchema():new("ref")
+        oSchRefBody:setRef("HelloRequest")
+        oPost:setBody(OApiBody():new(.T., oSchRefBody, "Dados para gerar a saudação."))
+        oRespPost200 := OApiResp():new("200", "Saudação criada com sucesso.")
+        oSchRefPost200 := OApiSchema():new("ref")
+        oSchRefPost200:setRef("HelloResponse")
+        oRespPost200:setSchema(oSchRefPost200)
+        oPost:addResp(oRespPost200)
+        oRespPost400 := OApiResp():new("400", "Payload inválido.")
+        oSchRefPost400 := OApiSchema():new("ref")
+        oSchRefPost400:setRef("ErrorResponse")
+        oRespPost400:setSchema(oSchRefPost400)
+        oPost:addResp(oRespPost400)
+
+        oPathHello := OApiPath():new("/api/v1/hello")
+        oPathHello:addOper(oGet)
+        oPathHello:addOper(oPost)
+        oDoc:addPath(oPathHello)
+
         oJson := OApiJson():new()
         cResp := oJson:toJson(oDoc)
         oRest:SetStatusCode(200)

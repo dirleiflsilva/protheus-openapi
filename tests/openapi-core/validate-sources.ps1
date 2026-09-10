@@ -1,4 +1,4 @@
-$ErrorActionPreference = "Stop"
+﻿$ErrorActionPreference = "Stop"
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $fixturePath = Join-Path $PSScriptRoot "custom.openapi.core.test.tlpp"
 $infoPath = Join-Path $repoRoot "src\core\custom.openapi.info.tlpp"
@@ -1249,10 +1249,24 @@ foreach ($pattern in @(
 $apiValidation = [regex]::Replace($apiContent, '(?s)/\*.*?\*/', '')
 $apiValidation = [regex]::Replace($apiValidation, '(?m)//[^\r\n]*', '')
 
-foreach ($className in @("OApiInfo", "OApiResp", "OApiOper", "OApiPath", "OApiDoc", "OApiJson")) {
+foreach ($className in @("OApiInfo", "OApiResp", "OApiOper", "OApiPath", "OApiDoc", "OApiJson", "OApiSchema", "OApiParam", "OApiBody")) {
     Assert-Match -Content $apiValidation `
         -Pattern "(?i)\b$className[\t ]*\([\t ]*\)[\t ]*:[\t ]*new[\t ]*\(" `
         -Message "Uso da classe $className ausente no endpoint OApiCore."
+}
+
+foreach ($pattern in @(
+    '(?i):[\t ]*addSchema[\t ]*\(',
+    '(?i):[\t ]*addParam[\t ]*\(',
+    '(?i):[\t ]*setBody[\t ]*\(',
+    '(?i):[\t ]*setSchema[\t ]*\(',
+    '(?i):[\t ]*setRef[\t ]*\([\t ]*"HelloRequest"',
+    '(?i):[\t ]*setRef[\t ]*\([\t ]*"HelloResponse"',
+    '(?i):[\t ]*setRef[\t ]*\([\t ]*"ErrorResponse"'
+)) {
+    Assert-Match -Content $apiValidation `
+        -Pattern $pattern `
+        -Message "Enriquecimento obrigatório ausente no endpoint OApiCore: $pattern"
 }
 
 foreach ($pattern in @(
@@ -1288,6 +1302,70 @@ foreach ($entry in $apiForbidden.GetEnumerator()) {
     }
 }
 
+$heloGetPath = Join-Path $repoRoot "examples\openapi-parameters-schemas\custom.openapi.hello.get.tlpp"
+
+if (-not (Test-Path -LiteralPath $heloGetPath -PathType Leaf)) {
+    throw "Fonte do endpoint HeloGet não encontrado: $heloGetPath"
+}
+
+$heloGetContent = Get-Cp1252Content -Path $heloGetPath
+$heloGetValidation = [regex]::Replace($heloGetContent, '(?s)/\*.*?\*/', '')
+$heloGetValidation = [regex]::Replace($heloGetValidation, '(?m)//[^\r\n]*', '')
+
+foreach ($pattern in @(
+    '(?i)\bendpoint[\t ]*=[\t ]*"/api/v1/hello/:name"',
+    '(?im)^[\t ]*User[\t ]+Function[\t ]+HeloGet[\t ]*\([\t ]*\)[\t ]+as[\t ]+Logical\b',
+    '(?i)oRest[\t ]*:[\t ]*GetPathParamsRequest[\t ]*\(',
+    '(?i)oRest[\t ]*:[\t ]*GetQueryRequest[\t ]*\(',
+    '(?i)\[[\t ]*"message"[\t ]*\][\t ]*:=[\t ]*"Hello[\t ]*"[\t ]*\+',
+    '(?i)\[[\t ]*"status"[\t ]*\][\t ]*:=[\t ]*"success"',
+    '(?i)oRest[\t ]*:[\t ]*SetStatusCode[\t ]*\([\t ]*200[\t ]*\)',
+    '(?i)oRest[\t ]*:[\t ]*SetResponse[\t ]*\('
+)) {
+    Assert-Match -Content $heloGetValidation `
+        -Pattern $pattern `
+        -Message "Contrato obrigatório ausente no endpoint HeloGet: $pattern"
+}
+
+$heloPostPath = Join-Path $repoRoot "examples\openapi-parameters-schemas\custom.openapi.hello.post.tlpp"
+
+if (-not (Test-Path -LiteralPath $heloPostPath -PathType Leaf)) {
+    throw "Fonte do endpoint HeloPost não encontrado: $heloPostPath"
+}
+
+$heloPostContent = Get-Cp1252Content -Path $heloPostPath
+$heloPostValidation = [regex]::Replace($heloPostContent, '(?s)/\*.*?\*/', '')
+$heloPostValidation = [regex]::Replace($heloPostValidation, '(?m)//[^\r\n]*', '')
+
+foreach ($pattern in @(
+    '(?i)\bendpoint[\t ]*=[\t ]*"/api/v1/hello"',
+    '(?im)^[\t ]*User[\t ]+Function[\t ]+HeloPost[\t ]*\([\t ]*\)[\t ]+as[\t ]+Logical\b',
+    '(?i)oRest[\t ]*:[\t ]*GetBodyRequest[\t ]*\(',
+    '(?i):[\t ]*FromJson[\t ]*\(',
+    '(?i)\[[\t ]*"message"[\t ]*\][\t ]*:=[\t ]*"Payload inválido\."',
+    '(?i)\[[\t ]*"status"[\t ]*\][\t ]*:=[\t ]*"error"',
+    '(?i)oRest[\t ]*:[\t ]*SetStatusCode[\t ]*\([\t ]*400[\t ]*\)',
+    '(?i)oRest[\t ]*:[\t ]*SetStatusCode[\t ]*\([\t ]*200[\t ]*\)'
+)) {
+    Assert-Match -Content $heloPostValidation `
+        -Pattern $pattern `
+        -Message "Contrato obrigatório ausente no endpoint HeloPost: $pattern"
+}
+
+$heloForbidden = @{
+    '(?i)oError[\t ]*:[\t ]*(Description|ErrorStack|Stack)' = "Detalhes internos do erro não podem ser enviados ao cliente."
+    '(?i)\btlpp\.doc\.generate[\t ]*\(' = "Os endpoints de demonstração não podem depender de tlpp.doc.generate()."
+    '(?i)\b(FOpen|FCreate|FRead|FWrite|MemoRead|MemoWrite|Directory)[\t ]*\(' = "Os endpoints de demonstração não podem depender de filesystem."
+}
+
+foreach ($heloFile in @($heloGetValidation, $heloPostValidation)) {
+    foreach ($entry in $heloForbidden.GetEnumerator()) {
+        if ($heloFile -match $entry.Key) {
+            throw $entry.Value
+        }
+    }
+}
+
 $forbidden = @{
     '(?im)^[\t ]*Function[\t ]+' = "Function não pode ser usado em customizações."
     '(?im)^[\t ]*User[\t ]+Function[\t ]+U_' = "Não declare o prefixo U_ explicitamente."
@@ -1299,7 +1377,8 @@ $forbidden = @{
 $sourceRoots = @(
     (Join-Path $repoRoot "src\core"),
     (Join-Path $repoRoot "tests\openapi-core"),
-    (Join-Path $repoRoot "examples\openapi-core")
+    (Join-Path $repoRoot "examples\openapi-core"),
+    (Join-Path $repoRoot "examples\openapi-parameters-schemas")
 )
 
 foreach ($sourceRoot in $sourceRoots) {

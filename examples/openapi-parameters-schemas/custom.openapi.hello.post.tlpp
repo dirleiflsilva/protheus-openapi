@@ -1,0 +1,59 @@
+#include "tlpp-core.th"
+#include "tlpp-rest.th"
+#include "totvs.ch"
+
+/*/{Protheus.doc}
+    Cria uma nova saudação a partir de um HelloRequest recebido no corpo da requisição.
+    @type function
+    @author Dirlei Silva
+    @since 2026-08-26
+    @return logical, Resultado do envio da resposta REST
+*/
+@Post(;
+    endpoint="/api/v1/hello",;
+    title="Cria saudação",;
+    description="Cria uma nova saudação a partir de um HelloRequest.",;
+    responses='[{"statusCode":200,"description":"Saudação criada com sucesso."},{"statusCode":400,"description":"Payload inválido."}]';
+)
+User Function HeloPost() as Logical
+
+    Local cBody     := oRest:GetBodyRequest() as Character
+    Local jBody     := JsonObject():New() as Json
+    Local jResp     := JsonObject():New() as Json
+    Local cParseErr := "" as Character
+    Local cName     := "" as Character
+    Local cLang     := "" as Character
+    Local cResp     := "" as Character
+    Local lValid    := .T. as Logical
+
+    cParseErr := jBody:FromJson(cBody)
+
+    If Empty(cBody) .Or. !Empty(cParseErr)
+        lValid := .F.
+    ElseIf ValType(jBody["name"]) != "C" .Or. Empty(AllTrim(jBody["name"]))
+        lValid := .F.
+    EndIf
+
+    If !lValid
+        jResp["message"] := "Payload inválido."
+        jResp["status"]  := "error"
+        cResp := jResp:ToJson()
+        oRest:SetStatusCode(400)
+    Else
+        cName := AllTrim(jBody["name"])
+        cLang := "TL++"
+
+        If ValType(jBody["language"]) == "C" .And. !Empty(jBody["language"])
+            cLang := jBody["language"]
+        EndIf
+
+        jResp["message"]  := "Hello " + cName
+        jResp["language"] := cLang
+        jResp["status"]   := "success"
+        cResp := jResp:ToJson()
+        oRest:SetStatusCode(200)
+    EndIf
+
+    oRest:SetKeyHeaderResponse("Content-Type", "application/json")
+
+Return oRest:SetResponse(cResp)

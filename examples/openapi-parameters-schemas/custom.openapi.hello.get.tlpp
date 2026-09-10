@@ -1,0 +1,44 @@
+#include "tlpp-core.th"
+#include "tlpp-rest.th"
+#include "totvs.ch"
+
+/*/{Protheus.doc}
+    Retorna uma saudação personalizada usando o parâmetro de path name e o parâmetro opcional de query language.
+    @type function
+    @author Dirlei Silva
+    @since 2026-08-26
+    @return logical, Resultado do envio da resposta REST
+*/
+@Get(;
+    endpoint="/api/v1/hello/:name",;
+    title="Consulta saudação",;
+    description="Retorna uma saudação personalizada usando o parâmetro de path name e o parâmetro opcional de query language.",;
+    responses='[{"statusCode":200,"description":"Saudação retornada com sucesso."}]';
+)
+User Function HeloGet() as Logical
+
+    Local jPath  := oRest:GetPathParamsRequest() as Json
+    Local jQuery := oRest:GetQueryRequest() as Json
+    Local cName  := "" as Character
+    Local cLang  := "" as Character
+    Local jResp  := JsonObject():New() as Json
+    Local cResp  := "" as Character
+
+    cName := jPath["name"]
+    cLang := "TL++"
+
+    If jQuery != Nil
+        If ValType(jQuery["language"]) == "C" .And. !Empty(jQuery["language"])
+            cLang := jQuery["language"]
+        EndIf
+    EndIf
+
+    jResp["message"]  := "Hello " + cName
+    jResp["language"] := cLang
+    jResp["status"]   := "success"
+    cResp := jResp:ToJson()
+
+    oRest:SetStatusCode(200)
+    oRest:SetKeyHeaderResponse("Content-Type", "application/json")
+
+Return oRest:SetResponse(cResp)
