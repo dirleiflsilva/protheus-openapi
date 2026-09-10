@@ -10,12 +10,15 @@ namespace custom.openapi.core
     @since 2026-08-24
 */
 class OApiResp
-    private data cCode as character
-    private data cDesc as character
+    private data cCode   as character
+    private data cDesc   as character
+    private data oSchema as object
 
     public method new(cCode as character, cDesc as character) as object
     public method getCode() as character
     public method getDesc() as character
+    public method setSchema(oSchema as object) as object
+    public method getSchema() as object
     public method validate() as array
 endclass
 
@@ -30,8 +33,9 @@ endclass
 */
 method new(cCode as character, cDesc as character) as object class OApiResp
 
-    ::cCode := cCode
-    ::cDesc := cDesc
+    ::cCode   := cCode
+    ::cDesc   := cDesc
+    ::oSchema := Nil
 
 return self
 
@@ -55,16 +59,40 @@ return ::cCode
 method getDesc() as character class OApiResp
 return ::cDesc
 
+/*/{Protheus.doc} OApiResp::setSchema
+    Associa o schema de conteúdo JSON da resposta.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-26
+    @param oSchema, object, Schema do conteúdo JSON da resposta
+    @return object, Própria instância de OApiResp
+*/
+method setSchema(oSchema as object) as object class OApiResp
+::oSchema := oSchema
+return self
+
+/*/{Protheus.doc} OApiResp::getSchema
+    Retorna o schema de conteúdo JSON da resposta.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-26
+    @return object, Schema representado para a resposta, ou Nil quando ainda não definido
+*/
+method getSchema() as object class OApiResp
+return ::oSchema
+
 /*/{Protheus.doc} OApiResp::validate
-    Retorna todas as pendências conhecidas da resposta.
+    Retorna todas as pendências conhecidas da resposta, incluindo o schema associado.
     @type method
     @author Dirlei Silva
     @since 2026-08-24
-    @return array, Pendências encontradas para código e descrição
+    @return array, Pendências encontradas para código, descrição e schema
 */
 method validate() as array class OApiResp
 
-    Local aPend := {} as Array
+    Local aPend  := {} as Array
+    Local aSPend := {} as Array
+    Local nPend  := 0 as Numeric
 
     If Empty(::cCode)
         AAdd(aPend, "Código da resposta é obrigatório.")
@@ -72,6 +100,14 @@ method validate() as array class OApiResp
 
     If Empty(::cDesc)
         AAdd(aPend, "Descrição da resposta é obrigatória.")
+    EndIf
+
+    If ::oSchema != Nil
+        aSPend := ::oSchema:validate()
+
+        For nPend := 1 To Len(aSPend)
+            AAdd(aPend, "Schema da resposta: " + aSPend[nPend])
+        Next nPend
     EndIf
 
 return aPend

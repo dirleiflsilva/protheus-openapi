@@ -585,6 +585,29 @@ foreach ($methodName in @("new", "getCode", "getDesc", "validate")) {
     }
 }
 
+foreach ($methodName in @("setSchema", "getSchema")) {
+    $methodMatch = [regex]::Match(
+        $respContent,
+        "(?is)(?<doc>/\*/\{Protheus\.doc\}[\t ]+OApiResp::$methodName\b.*?\*/)[\t \r\n]*method[\t ]+$methodName[\t ]*\("
+    )
+
+    if (-not $methodMatch.Success) {
+        throw "ProtheusDOC obrigatório ausente para OApiResp::$methodName."
+    }
+
+    $respDocs[$methodName] = $methodMatch.Groups["doc"].Value
+
+    foreach ($pattern in @(
+        '(?im)^[\t ]*@type[\t ]+method\b',
+        '(?im)^[\t ]*@author[\t ]+Dirlei Silva\b',
+        '(?im)^[\t ]*@since[\t ]+2026-08-26\b'
+    )) {
+        Assert-Match -Content $respDocs[$methodName] `
+            -Pattern $pattern `
+            -Message "ProtheusDOC incompleto para OApiResp::${methodName}: $pattern"
+    }
+}
+
 if (-not (Test-Path -LiteralPath $operPath -PathType Leaf)) {
     throw "Fonte OApiOper não encontrado: $operPath"
 }
@@ -757,6 +780,19 @@ Assert-Match -Content $respDocs["validate"] `
     -Pattern '(?im)^[\t ]*@return[\t ]+array,[\t ]+[^\r\n]+\r?$' `
     -Message "@return array ausente para OApiResp::validate."
 
+foreach ($pattern in @(
+    '(?im)^[\t ]*@param[\t ]+oSchema,[\t ]+object,[\t ]+[^\r\n]+\r?$',
+    '(?im)^[\t ]*@return[\t ]+object,[\t ]+[^\r\n]+\r?$'
+)) {
+    Assert-Match -Content $respDocs["setSchema"] `
+        -Pattern $pattern `
+        -Message "ProtheusDOC incompleto para OApiResp::setSchema: $pattern"
+}
+
+Assert-Match -Content $respDocs["getSchema"] `
+    -Pattern '(?im)^[\t ]*@return[\t ]+object,[\t ]+[^\r\n]+\r?$' `
+    -Message "@return object ausente para OApiResp::getSchema."
+
 Assert-Match -Content $respContent `
     -Pattern '(?is)/\*/\{Protheus\.doc\}[\t ]+OApiResp\b.*?@type[\t ]+class\b.*?@author[\t ]+Dirlei Silva\b.*?@since[\t ]+2026-08-24\b.*?\*/[\t \r\n]*class[\t ]+OApiResp\b' `
     -Message "ProtheusDOC obrigatório ausente para a classe OApiResp."
@@ -764,7 +800,7 @@ Assert-Match -Content $respContent `
 $respValidation = [regex]::Replace($respContent, '(?s)/\*.*?\*/', '')
 $respValidation = [regex]::Replace($respValidation, '(?m)//[^\r\n]*', '')
 
-foreach ($methodName in @("new", "getCode", "getDesc", "validate")) {
+foreach ($methodName in @("new", "getCode", "getDesc", "setSchema", "getSchema", "validate")) {
     Assert-Match -Content $respValidation `
         -Pattern "(?im)^[\t ]*public[\t ]+method[\t ]+$methodName[\t ]*\(" `
         -Message "Método público OApiResp::$methodName ausente na declaração da classe."

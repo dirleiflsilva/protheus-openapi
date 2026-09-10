@@ -153,6 +153,10 @@ User Function OApiTst() as Logical
     Local cBodyDupErr := "" as Character
     Local lBodyDupErr := .F. as Logical
     Local oOperBB    as Object
+    Local oRespSch   as Object
+    Local oRespNoSch as Object
+    Local oRespSchInv as Object
+    Local aRespPend := {} as Array
 
     assertEquals(.T., .T., "O harness PROBAT deve aceitar valores iguais.")
 
@@ -854,6 +858,26 @@ User Function OApiTst() as Logical
     assertEquals(1, Len(aOpPend), "Pendência do request body inválido deve ser agregada pela operação.")
     If Len(aOpPend) >= 1
         assertEquals("Operação post, request body: Request body sem schema.", aOpPend[1], "A pendência deve manter o contexto da operação e do request body.")
+    EndIf
+
+    oRespSch := OApiResp():new("200", "Recurso retornado com sucesso.")
+    oRespSch:setSchema(OApiSchema():new("string"))
+
+    assertEquals("string", oRespSch:getSchema():getKind(), "O schema associado deve ser preservado.")
+    assertEquals(0, Len(oRespSch:validate()), "Resposta com schema válido não deve gerar pendências.")
+
+    oRespNoSch := OApiResp():new("204", "Sem conteúdo.")
+
+    assertEquals(Nil, oRespNoSch:getSchema(), "Resposta sem schema deve retornar Nil.")
+    assertEquals(0, Len(oRespNoSch:validate()), "Resposta sem schema continua válida e não deve gerar pendências.")
+
+    oRespSchInv := OApiResp():new("200", "Recurso retornado com sucesso.")
+    oRespSchInv:setSchema(OApiSchema():new("object"))
+    aRespPend := oRespSchInv:validate()
+
+    assertEquals(1, Len(aRespPend), "Pendência do schema da resposta deve ser propagada.")
+    If Len(aRespPend) >= 1
+        assertEquals("Schema da resposta: Schema object sem propriedades.", aRespPend[1], "A pendência deve manter o contexto da resposta.")
     EndIf
 
 Return .T.
