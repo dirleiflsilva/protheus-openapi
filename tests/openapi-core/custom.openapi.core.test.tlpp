@@ -131,6 +131,28 @@ User Function OApiTst() as Logical
     Local oBodyE     as Object
     Local oBodySch   as Object
     Local aBodyPend := {} as Array
+    Local oOperP     as Object
+    Local oParX      as Object
+    Local oParY      as Object
+    Local oParXDup   as Object
+    Local oParXCase  as Object
+    Local aOpParams := {} as Array
+    Local cParamDupErr := "" as Character
+    Local lParamDupErr := .F. as Logical
+    Local oOperH     as Object
+    Local oParH1     as Object
+    Local oParH2     as Object
+    Local cHeaderDupErr := "" as Character
+    Local lHeaderDupErr := .F. as Logical
+    Local oOperBad   as Object
+    Local oParBad    as Object
+    Local aOpPend   := {} as Array
+    Local oOperB     as Object
+    Local oBodyOk    as Object
+    Local oBodyOther as Object
+    Local cBodyDupErr := "" as Character
+    Local lBodyDupErr := .F. as Logical
+    Local oOperBB    as Object
 
     assertEquals(.T., .T., "O harness PROBAT deve aceitar valores iguais.")
 
@@ -737,6 +759,101 @@ User Function OApiTst() as Logical
     assertEquals(1, Len(aBodyPend), "Pendência do schema do request body deve ser propagada.")
     If Len(aBodyPend) >= 1
         assertEquals("Schema do request body: Schema object sem propriedades.", aBodyPend[1], "A pendência deve manter o contexto do request body.")
+    EndIf
+
+    oOperP := OApiOper():new("GET", "Consulta parametrizada", "Consulta um recurso por path e query.")
+    oOperP:addResp(OApiResp():new("200", "Recurso retornado com sucesso."))
+    oParX := OApiParam():new("id", "path", .T., OApiSchema():new("string"), "")
+    oParY := OApiParam():new("lang", "query", .F., OApiSchema():new("string"), "")
+    oOperP:addParam(oParX)
+    oOperP:addParam(oParY)
+    aOpParams := oOperP:getParams()
+
+    assertEquals(2, Len(aOpParams), "Os dois parâmetros válidos devem ser incluídos na operação.")
+    If Len(aOpParams) >= 2
+        assertEquals("id", aOpParams[1]:getName(), "A ordem de inclusão do primeiro parâmetro deve ser preservada.")
+        assertEquals("lang", aOpParams[2]:getName(), "A ordem de inclusão do segundo parâmetro deve ser preservada.")
+    EndIf
+
+    assertEquals(0, Len(oOperP:validate()), "Operação com parâmetros válidos não deve gerar pendências.")
+
+    oParXDup := OApiParam():new("id", "path", .T., OApiSchema():new("string"), "outro")
+
+    Try
+        oOperP:addParam(oParXDup)
+    Catch oError
+        lParamDupErr := .T.
+        cParamDupErr := oError:Description
+    EndTry
+
+    assertEquals(.T., lParamDupErr, "Parâmetro com mesma localização e nome deve falhar imediatamente.")
+    assertEquals("Parâmetro duplicado na operação get: path id.", cParamDupErr, "O erro deve diagnosticar a localização e o nome duplicados.")
+
+    aOpParams := oOperP:getParams()
+    assertEquals(2, Len(aOpParams), "A falha não deve incluir nem substituir o parâmetro original.")
+
+    oParXCase := OApiParam():new("Id", "path", .T., OApiSchema():new("string"), "")
+    oOperP:addParam(oParXCase)
+    aOpParams := oOperP:getParams()
+
+    assertEquals(3, Len(aOpParams), "Um nome com caixa diferente em path deve ser tratado como parâmetro distinto.")
+
+    oOperH := OApiOper():new("GET", "Consulta com cabeçalho", "Consulta um recurso identificado por cabeçalho.")
+    oOperH:addResp(OApiResp():new("200", "Recurso retornado com sucesso."))
+    oParH1 := OApiParam():new("X-Test", "header", .F., OApiSchema():new("string"), "")
+    oOperH:addParam(oParH1)
+    oParH2 := OApiParam():new("x-test", "header", .F., OApiSchema():new("string"), "")
+
+    Try
+        oOperH:addParam(oParH2)
+    Catch oError
+        lHeaderDupErr := .T.
+        cHeaderDupErr := oError:Description
+    EndTry
+
+    assertEquals(.T., lHeaderDupErr, "Cabeçalho com o mesmo nome em caixa diferente deve falhar imediatamente.")
+    assertEquals("Parâmetro duplicado na operação get: header x-test.", cHeaderDupErr, "O erro deve diagnosticar a duplicidade insensível a caixa em header.")
+
+    oOperBad := OApiOper():new("POST", "Operação com parâmetro inválido", "Valida pendências transitivas de parâmetros.")
+    oOperBad:addResp(OApiResp():new("200", "Recurso retornado com sucesso."))
+    oParBad := OApiParam():new("", "query", .F., OApiSchema():new("string"), "")
+    oOperBad:addParam(oParBad)
+    aOpPend := oOperBad:validate()
+
+    assertEquals(1, Len(aOpPend), "Pendência do parâmetro inválido deve ser agregada pela operação.")
+    If Len(aOpPend) >= 1
+        assertEquals("Operação post, parâmetro query <vazio>: Nome do parâmetro é obrigatório.", aOpPend[1], "A pendência deve manter o contexto da operação e do parâmetro.")
+    EndIf
+
+    oOperB := OApiOper():new("POST", "Cria recurso", "Cria um recurso a partir do request body.")
+    oOperB:addResp(OApiResp():new("201", "Recurso criado com sucesso."))
+    oBodyOk := OApiBody():new(.T., OApiSchema():new("string"), "Corpo da requisição.")
+    oOperB:setBody(oBodyOk)
+
+    assertEquals(.T., oOperB:getBody():getReq(), "O request body associado deve ser preservado.")
+    assertEquals(0, Len(oOperB:validate()), "Operação com request body válido não deve gerar pendências.")
+
+    oBodyOther := OApiBody():new(.F., OApiSchema():new("string"), "outro")
+
+    Try
+        oOperB:setBody(oBodyOther)
+    Catch oError
+        lBodyDupErr := .T.
+        cBodyDupErr := oError:Description
+    EndTry
+
+    assertEquals(.T., lBodyDupErr, "Uma segunda definição de request body deve falhar imediatamente.")
+    assertEquals("Request body já definido na operação post.", cBodyDupErr, "O erro deve diagnosticar a redefinição do request body.")
+    assertEquals(.T., oOperB:getBody():getReq(), "A falha não deve substituir o request body original.")
+
+    oOperBB := OApiOper():new("POST", "Operação com body inválido", "Valida pendências transitivas do request body.")
+    oOperBB:addResp(OApiResp():new("200", "Recurso retornado com sucesso."))
+    oOperBB:setBody(OApiBody():new(.F., Nil, ""))
+    aOpPend := oOperBB:validate()
+
+    assertEquals(1, Len(aOpPend), "Pendência do request body inválido deve ser agregada pela operação.")
+    If Len(aOpPend) >= 1
+        assertEquals("Operação post, request body: Request body sem schema.", aOpPend[1], "A pendência deve manter o contexto da operação e do request body.")
     EndIf
 
 Return .T.

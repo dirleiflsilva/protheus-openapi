@@ -14,6 +14,8 @@ class OApiOper
     private data cSummary as character
     private data cDesc    as character
     private data aResps   as array
+    private data aParams  as array
+    private data oBody    as object
 
     public method new(cMethod as character, cSummary as character, cDesc as character) as object
     public method getMethod() as character
@@ -21,6 +23,10 @@ class OApiOper
     public method getDesc() as character
     public method getResps() as array
     public method addResp(oResp as object) as object
+    public method getParams() as array
+    public method addParam(oParam as object) as object
+    public method getBody() as object
+    public method setBody(oBody as object) as object
     public method validate() as array
 endclass
 
@@ -53,6 +59,8 @@ method new(cMethod as character, cSummary as character, cDesc as character) as o
     ::cSummary := cSummary
     ::cDesc    := cDesc
     ::aResps   := {}
+    ::aParams  := {}
+    ::oBody    := Nil
 
 return self
 
@@ -119,6 +127,84 @@ method addResp(oResp as object) as object class OApiOper
 
 return self
 
+/*/{Protheus.doc} OApiOper::getParams
+    Retorna uma cópia rasa dos parâmetros da operação, preservando a ordem de inclusão.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-26
+    @return array, Cópia dos parâmetros incluídos na operação
+*/
+method getParams() as array class OApiOper
+return AClone(::aParams)
+
+/*/{Protheus.doc} OApiOper::addParam
+    Inclui um parâmetro quando sua localização e nome ainda não pertencem à operação.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-26
+    @param oParam, object, Parâmetro OpenAPI que será incluído
+    @return object, Própria instância de OApiOper
+*/
+method addParam(oParam as object) as object class OApiOper
+
+    Local cIn     := oParam:getIn() as Character
+    Local cName   := oParam:getName() as Character
+    Local cExName := "" as Character
+    Local nParam  := 0 as Numeric
+    Local lDup    := .F. as Logical
+
+    For nParam := 1 To Len(::aParams)
+        If ::aParams[nParam]:getIn() == cIn
+            cExName := ::aParams[nParam]:getName()
+
+            If cIn == "header"
+                lDup := Upper(cExName) == Upper(cName)
+            Else
+                lDup := cExName == cName
+            EndIf
+
+            If lDup
+                Exit
+            EndIf
+        EndIf
+    Next nParam
+
+    If lDup
+        UserException("Parâmetro duplicado na operação " + ::cMethod + ": " + cIn + " " + cName + ".")
+    EndIf
+
+    AAdd(::aParams, oParam)
+
+return self
+
+/*/{Protheus.doc} OApiOper::getBody
+    Retorna o request body associado à operação.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-26
+    @return object, Request body representado, ou Nil quando ainda não definido
+*/
+method getBody() as object class OApiOper
+return ::oBody
+
+/*/{Protheus.doc} OApiOper::setBody
+    Associa o request body quando a operação ainda não possui um.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-26
+    @param oBody, object, Request body que será associado à operação
+    @return object, Própria instância de OApiOper
+*/
+method setBody(oBody as object) as object class OApiOper
+
+    If ::oBody != Nil
+        UserException("Request body já definido na operação " + ::cMethod + ".")
+    EndIf
+
+    ::oBody := oBody
+
+return self
+
 /*/{Protheus.doc} OApiOper::validate
     Retorna as pendências da operação e de todas as suas respostas.
     @type method
@@ -130,8 +216,12 @@ method validate() as array class OApiOper
 
     Local aPend  := {} as Array
     Local aRPend := {} as Array
+    Local aPPend := {} as Array
+    Local aBPend := {} as Array
     Local cCode  := "" as Character
+    Local cPName := "" as Character
     Local nResp  := 0 as Numeric
+    Local nParam := 0 as Numeric
     Local nPend  := 0 as Numeric
 
     If Empty(::aResps)
@@ -149,6 +239,27 @@ method validate() as array class OApiOper
                 AAdd(aPend, "Operação " + ::cMethod + ", resposta " + cCode + ": " + aRPend[nPend])
             Next nPend
         Next nResp
+    EndIf
+
+    For nParam := 1 To Len(::aParams)
+        cPName := ::aParams[nParam]:getName()
+        aPPend := ::aParams[nParam]:validate()
+
+        If Empty(cPName)
+            cPName := "<vazio>"
+        EndIf
+
+        For nPend := 1 To Len(aPPend)
+            AAdd(aPend, "Operação " + ::cMethod + ", parâmetro " + ::aParams[nParam]:getIn() + " " + cPName + ": " + aPPend[nPend])
+        Next nPend
+    Next nParam
+
+    If ::oBody != Nil
+        aBPend := ::oBody:validate()
+
+        For nPend := 1 To Len(aBPend)
+            AAdd(aPend, "Operação " + ::cMethod + ", request body: " + aBPend[nPend])
+        Next nPend
     EndIf
 
 return aPend

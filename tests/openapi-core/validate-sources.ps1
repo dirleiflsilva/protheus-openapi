@@ -638,6 +638,29 @@ foreach ($methodName in @("new", "getMethod", "getSummary", "getDesc", "getResps
     }
 }
 
+foreach ($methodName in @("getParams", "addParam", "getBody", "setBody")) {
+    $methodMatch = [regex]::Match(
+        $operContent,
+        "(?is)(?<doc>/\*/\{Protheus\.doc\}[\t ]+OApiOper::$methodName\b.*?\*/)[\t \r\n]*method[\t ]+$methodName[\t ]*\("
+    )
+
+    if (-not $methodMatch.Success) {
+        throw "ProtheusDOC obrigatório ausente para OApiOper::$methodName."
+    }
+
+    $operDocs[$methodName] = $methodMatch.Groups["doc"].Value
+
+    foreach ($pattern in @(
+        '(?im)^[\t ]*@type[\t ]+method\b',
+        '(?im)^[\t ]*@author[\t ]+Dirlei Silva\b',
+        '(?im)^[\t ]*@since[\t ]+2026-08-26\b'
+    )) {
+        Assert-Match -Content $operDocs[$methodName] `
+            -Pattern $pattern `
+            -Message "ProtheusDOC incompleto para OApiOper::${methodName}: $pattern"
+    }
+}
+
 foreach ($pattern in @(
     '(?im)^[\t ]*@param[\t ]+cMethod,[\t ]+character,[\t ]+[^\r\n]+\r?$',
     '(?im)^[\t ]*@param[\t ]+cSummary,[\t ]+character,[\t ]+[^\r\n]+\r?$',
@@ -672,6 +695,32 @@ Assert-Match -Content $operDocs["validate"] `
     -Pattern '(?im)^[\t ]*@return[\t ]+array,[\t ]+[^\r\n]+\r?$' `
     -Message "@return array ausente para OApiOper::validate."
 
+Assert-Match -Content $operDocs["getParams"] `
+    -Pattern '(?im)^[\t ]*@return[\t ]+array,[\t ]+[^\r\n]+\r?$' `
+    -Message "@return array ausente para OApiOper::getParams."
+
+foreach ($pattern in @(
+    '(?im)^[\t ]*@param[\t ]+oParam,[\t ]+object,[\t ]+[^\r\n]+\r?$',
+    '(?im)^[\t ]*@return[\t ]+object,[\t ]+[^\r\n]+\r?$'
+)) {
+    Assert-Match -Content $operDocs["addParam"] `
+        -Pattern $pattern `
+        -Message "ProtheusDOC incompleto para OApiOper::addParam: $pattern"
+}
+
+Assert-Match -Content $operDocs["getBody"] `
+    -Pattern '(?im)^[\t ]*@return[\t ]+object,[\t ]+[^\r\n]+\r?$' `
+    -Message "@return object ausente para OApiOper::getBody."
+
+foreach ($pattern in @(
+    '(?im)^[\t ]*@param[\t ]+oBody,[\t ]+object,[\t ]+[^\r\n]+\r?$',
+    '(?im)^[\t ]*@return[\t ]+object,[\t ]+[^\r\n]+\r?$'
+)) {
+    Assert-Match -Content $operDocs["setBody"] `
+        -Pattern $pattern `
+        -Message "ProtheusDOC incompleto para OApiOper::setBody: $pattern"
+}
+
 Assert-Match -Content $operContent `
     -Pattern '(?is)/\*/\{Protheus\.doc\}[\t ]+OApiOper\b.*?@type[\t ]+class\b.*?@author[\t ]+Dirlei Silva\b.*?@since[\t ]+2026-08-25\b.*?\*/[\t \r\n]*class[\t ]+OApiOper\b' `
     -Message "ProtheusDOC obrigatório ausente para a classe OApiOper."
@@ -679,7 +728,7 @@ Assert-Match -Content $operContent `
 $operValidation = [regex]::Replace($operContent, '(?s)/\*.*?\*/', '')
 $operValidation = [regex]::Replace($operValidation, '(?m)//[^\r\n]*', '')
 
-foreach ($methodName in @("new", "getMethod", "getSummary", "getDesc", "getResps", "addResp", "validate")) {
+foreach ($methodName in @("new", "getMethod", "getSummary", "getDesc", "getResps", "addResp", "getParams", "addParam", "getBody", "setBody", "validate")) {
     Assert-Match -Content $operValidation `
         -Pattern "(?im)^[\t ]*public[\t ]+method[\t ]+$methodName[\t ]*\(" `
         -Message "Método público OApiOper::$methodName ausente na declaração da classe."
