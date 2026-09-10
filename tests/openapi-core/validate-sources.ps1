@@ -9,6 +9,7 @@ $docPath = Join-Path $repoRoot "src\core\custom.openapi.document.tlpp"
 $jsonPath = Join-Path $repoRoot "src\core\custom.openapi.json.tlpp"
 $apiPath = Join-Path $repoRoot "examples\openapi-core\custom.openapi.core.api.tlpp"
 $schemaPath = Join-Path $repoRoot "src\core\custom.openapi.schema.tlpp"
+$paramPath = Join-Path $repoRoot "src\core\custom.openapi.parameter.tlpp"
 
 function Get-Cp1252Content {
     param(
@@ -333,6 +334,106 @@ foreach ($methodName in @("new", "getKind", "addProp", "getProps", "setItems", "
 Assert-Match -Content $schemaValidation `
     -Pattern '(?im)^[\t ]*Static[\t ]+Function[\t ]+SchNameOk[\t ]*\(' `
     -Message "Função auxiliar privada SchNameOk ausente no OApiSchema."
+
+if (-not (Test-Path -LiteralPath $paramPath -PathType Leaf)) {
+    throw "Fonte OApiParam não encontrado: $paramPath"
+}
+
+$paramContent = Get-Cp1252Content -Path $paramPath
+$paramIncludes = [regex]::Matches(
+    $paramContent,
+    '(?im)^[\t ]*#include[\t ]+["''](?<name>[^"'']+)["''][\t ]*\r?$'
+)
+$paramExpectedIncludes = @("tlpp-core.th", "totvs.ch")
+
+if ($paramIncludes.Count -lt $paramExpectedIncludes.Count) {
+    throw "Includes obrigatórios ausentes no fonte OApiParam."
+}
+
+for ($index = 0; $index -lt $paramExpectedIncludes.Count; $index++) {
+    if ($paramIncludes[$index].Groups["name"].Value -cne $paramExpectedIncludes[$index]) {
+        throw "Ordem de includes inválida no OApiParam: esperado '$($paramExpectedIncludes[$index])' na posição $($index + 1)."
+    }
+}
+
+Assert-Match -Content $paramContent `
+    -Pattern '(?m)^[\t ]*namespace[\t ]+custom\.openapi\.core[\t ]*\r?$' `
+    -Message "Namespace custom.openapi.core ausente no OApiParam."
+Assert-Match -Content $paramContent `
+    -Pattern '(?im)^[\t ]*class[\t ]+OApiParam\b' `
+    -Message "Classe OApiParam ausente."
+
+$paramDocs = @{}
+
+foreach ($methodName in @("new", "getName", "getIn", "getReq", "getSchema", "getDesc", "validate")) {
+    $methodMatch = [regex]::Match(
+        $paramContent,
+        "(?is)(?<doc>/\*/\{Protheus\.doc\}[\t ]+OApiParam::$methodName\b.*?\*/)[\t \r\n]*method[\t ]+$methodName[\t ]*\("
+    )
+
+    if (-not $methodMatch.Success) {
+        throw "ProtheusDOC obrigatório ausente para OApiParam::$methodName."
+    }
+
+    $paramDocs[$methodName] = $methodMatch.Groups["doc"].Value
+
+    foreach ($pattern in @(
+        '(?im)^[\t ]*@type[\t ]+method\b',
+        '(?im)^[\t ]*@author[\t ]+Dirlei Silva\b',
+        '(?im)^[\t ]*@since[\t ]+2026-08-26\b'
+    )) {
+        Assert-Match -Content $paramDocs[$methodName] `
+            -Pattern $pattern `
+            -Message "ProtheusDOC incompleto para OApiParam::${methodName}: $pattern"
+    }
+}
+
+foreach ($pattern in @(
+    '(?im)^[\t ]*@param[\t ]+cName,[\t ]+character,[\t ]+[^\r\n]+\r?$',
+    '(?im)^[\t ]*@param[\t ]+cIn,[\t ]+character,[\t ]+[^\r\n]+\r?$',
+    '(?im)^[\t ]*@param[\t ]+lReq,[\t ]+logical,[\t ]+[^\r\n]+\r?$',
+    '(?im)^[\t ]*@param[\t ]+oSchema,[\t ]+object,[\t ]+[^\r\n]+\r?$',
+    '(?im)^[\t ]*@param[\t ]+cDesc,[\t ]+character,[\t ]+[^\r\n]+\r?$',
+    '(?im)^[\t ]*@return[\t ]+object,[\t ]+[^\r\n]+\r?$'
+)) {
+    Assert-Match -Content $paramDocs["new"] `
+        -Pattern $pattern `
+        -Message "ProtheusDOC incompleto para OApiParam::new: $pattern"
+}
+
+foreach ($methodName in @("getName", "getIn", "getDesc")) {
+    Assert-Match -Content $paramDocs[$methodName] `
+        -Pattern '(?im)^[\t ]*@return[\t ]+character,[\t ]+[^\r\n]+\r?$' `
+        -Message "@return character ausente para OApiParam::$methodName."
+}
+
+Assert-Match -Content $paramDocs["getReq"] `
+    -Pattern '(?im)^[\t ]*@return[\t ]+logical,[\t ]+[^\r\n]+\r?$' `
+    -Message "@return logical ausente para OApiParam::getReq."
+
+Assert-Match -Content $paramDocs["getSchema"] `
+    -Pattern '(?im)^[\t ]*@return[\t ]+object,[\t ]+[^\r\n]+\r?$' `
+    -Message "@return object ausente para OApiParam::getSchema."
+
+Assert-Match -Content $paramDocs["validate"] `
+    -Pattern '(?im)^[\t ]*@return[\t ]+array,[\t ]+[^\r\n]+\r?$' `
+    -Message "@return array ausente para OApiParam::validate."
+
+Assert-Match -Content $paramContent `
+    -Pattern '(?is)/\*/\{Protheus\.doc\}[\t ]+OApiParam\b.*?@type[\t ]+class\b.*?@author[\t ]+Dirlei Silva\b.*?@since[\t ]+2026-08-26\b.*?\*/[\t \r\n]*class[\t ]+OApiParam\b' `
+    -Message "ProtheusDOC obrigatório ausente para a classe OApiParam."
+
+$paramValidation = [regex]::Replace($paramContent, '(?s)/\*.*?\*/', '')
+$paramValidation = [regex]::Replace($paramValidation, '(?m)//[^\r\n]*', '')
+
+foreach ($methodName in @("new", "getName", "getIn", "getReq", "getSchema", "getDesc", "validate")) {
+    Assert-Match -Content $paramValidation `
+        -Pattern "(?im)^[\t ]*public[\t ]+method[\t ]+$methodName[\t ]*\(" `
+        -Message "Método público OApiParam::$methodName ausente na declaração da classe."
+    Assert-Match -Content $paramValidation `
+        -Pattern "(?im)^[\t ]*method[\t ]+$methodName[\t ]*\([^\r\n]*\)[^\r\n]*class[\t ]+OApiParam\b" `
+        -Message "Implementação OApiParam::$methodName ausente."
+}
 
 if (-not (Test-Path -LiteralPath $respPath -PathType Leaf)) {
     throw "Fonte OApiResp não encontrado: $respPath"

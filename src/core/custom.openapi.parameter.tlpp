@@ -1,0 +1,133 @@
+#include "tlpp-core.th"
+#include "totvs.ch"
+
+namespace custom.openapi.core
+
+/*/{Protheus.doc} OApiParam
+    Representa um parâmetro de path, query ou header no documento OpenAPI.
+    @type class
+    @author Dirlei Silva
+    @since 2026-08-26
+*/
+class OApiParam
+    private data cName   as character
+    private data cIn     as character
+    private data lReq    as logical
+    private data oSchema as object
+    private data cDesc   as character
+
+    public method new(cName as character, cIn as character, lReq as logical, oSchema as object, cDesc as character) as object
+    public method getName() as character
+    public method getIn() as character
+    public method getReq() as logical
+    public method getSchema() as object
+    public method getDesc() as character
+    public method validate() as array
+endclass
+
+/*/{Protheus.doc} OApiParam::new
+    Inicializa o parâmetro quando a localização informada é suportada.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-26
+    @param cName, character, Nome do parâmetro, aparado e preservando a caixa original
+    @param cIn, character, Localização do parâmetro: path, query ou header
+    @param lReq, logical, Indica se o parâmetro é obrigatório
+    @param oSchema, object, Schema do parâmetro
+    @param cDesc, character, Descrição do parâmetro
+    @return object, Instância inicializada de OApiParam
+*/
+method new(cName as character, cIn as character, lReq as logical, oSchema as object, cDesc as character) as object class OApiParam
+
+    Local cLoc := Lower(AllTrim(cIn)) as Character
+
+    If cLoc != "path" .And. cLoc != "query" .And. cLoc != "header"
+        UserException("Localização de parâmetro OpenAPI não suportada: " + cIn + ".")
+    EndIf
+
+    ::cName   := AllTrim(cName)
+    ::cIn     := cLoc
+    ::lReq    := lReq
+    ::oSchema := oSchema
+    ::cDesc   := cDesc
+
+return self
+
+/*/{Protheus.doc} OApiParam::getName
+    Retorna o nome do parâmetro, aparado e com a caixa original preservada.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-26
+    @return character, Nome do parâmetro
+*/
+method getName() as character class OApiParam
+return ::cName
+
+/*/{Protheus.doc} OApiParam::getIn
+    Retorna a localização normalizada do parâmetro.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-26
+    @return character, Localização normalizada: path, query ou header
+*/
+method getIn() as character class OApiParam
+return ::cIn
+
+/*/{Protheus.doc} OApiParam::getReq
+    Retorna se o parâmetro é obrigatório.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-26
+    @return logical, Indica se o parâmetro é obrigatório
+*/
+method getReq() as logical class OApiParam
+return ::lReq
+
+/*/{Protheus.doc} OApiParam::getSchema
+    Retorna o schema do parâmetro.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-26
+    @return object, Schema representado para o parâmetro
+*/
+method getSchema() as object class OApiParam
+return ::oSchema
+
+/*/{Protheus.doc} OApiParam::getDesc
+    Retorna a descrição do parâmetro.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-26
+    @return character, Descrição informada para o parâmetro
+*/
+method getDesc() as character class OApiParam
+return ::cDesc
+
+/*/{Protheus.doc} OApiParam::validate
+    Retorna todas as pendências conhecidas do parâmetro, incluindo o schema associado.
+    @type method
+    @author Dirlei Silva
+    @since 2026-08-26
+    @return array, Pendências encontradas no parâmetro
+*/
+method validate() as array class OApiParam
+
+    Local aPend  := {} as Array
+    Local aSPend := {} as Array
+    Local nPend  := 0 as Numeric
+
+    If Empty(::cName)
+        AAdd(aPend, "Nome do parâmetro é obrigatório.")
+    EndIf
+
+    If ::cIn == "path" .And. !::lReq
+        AAdd(aPend, "Parâmetro path deve ser obrigatório.")
+    EndIf
+
+    aSPend := ::oSchema:validate()
+
+    For nPend := 1 To Len(aSPend)
+        AAdd(aPend, "Schema do parâmetro " + ::cName + ": " + aSPend[nPend])
+    Next nPend
+
+return aPend

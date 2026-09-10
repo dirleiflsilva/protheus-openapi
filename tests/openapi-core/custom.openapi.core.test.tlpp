@@ -8,12 +8,12 @@ using namespace tlpp.probat
 using namespace custom.openapi.core
 
 /*/{Protheus.doc}
-    Valida o harness m?nimo do PROBAT e os contratos iniciais do n?cleo OpenAPI.
+    Valida o harness mínimo do PROBAT e os contratos iniciais do núcleo OpenAPI.
 
     @type function
     @author Dirlei Silva
     @since 2026-08-24
-    @return logical, Resultado dos testes do n?cleo OpenAPI
+    @return logical, Resultado dos testes do núcleo OpenAPI
     @example
         Executar o fixture OApiTst pelo PROBAT.
 */
@@ -116,104 +116,115 @@ User Function OApiTst() as Logical
     Local lItemsErr := .F. as Logical
     Local lRefErr   := .F. as Logical
     Local lMutErr   := .F. as Logical
+    Local oParamA    as Object
+    Local oParamBad  as Object
+    Local oParamP    as Object
+    Local oParamE    as Object
+    Local oParamE2   as Object
+    Local oParamS    as Object
+    Local oParStrSch as Object
+    Local oParObjSch as Object
+    Local aParPend  := {} as Array
+    Local cInErr    := "" as Character
+    Local lInErr    := .F. as Logical
 
     assertEquals(.T., .T., "O harness PROBAT deve aceitar valores iguais.")
 
     oInfo := OApiInfo():new(;
         "Hello World API",;
-        "API de demonstra??o do n?cleo OpenAPI.",;
+        "API de demonstração do núcleo OpenAPI.",;
         "1.0.0";
     )
 
-    assertEquals("Hello World API", oInfo:getTitle(), "O t?tulo deve ser preservado.")
-    assertEquals("API de demonstra??o do n?cleo OpenAPI.", oInfo:getDesc(), "A descri??o deve ser preservada.")
-    assertEquals("1.0.0", oInfo:getVer(), "A vers?o deve ser preservada.")
+    assertEquals("Hello World API", oInfo:getTitle(), "O título deve ser preservado.")
+    assertEquals("API de demonstração do núcleo OpenAPI.", oInfo:getDesc(), "A descrição deve ser preservada.")
+    assertEquals("1.0.0", oInfo:getVer(), "A versão deve ser preservada.")
 
     aValid := oInfo:validate()
-    assertEquals(0, Len(aValid), "Informa??es v?lidas n?o devem gerar pend?ncias.")
+    assertEquals(0, Len(aValid), "Informações válidas não devem gerar pendências.")
 
-    oInv  := OApiInfo():new("", "Descri??o opcional.", "")
+    oInv  := OApiInfo():new("", "Descrição opcional.", "")
     aPend := oInv:validate()
 
-    assertEquals(2, Len(aPend), "T?tulo e vers?o vazios devem gerar duas pend?ncias.")
+    assertEquals(2, Len(aPend), "Título e versão vazios devem gerar duas pendências.")
 
     If Len(aPend) >= 2
-        assertEquals("T?tulo da API ? obrigat?rio.", aPend[1], "A pend?ncia do t?tulo deve ocupar a primeira posi??o.")
-        assertEquals("Vers?o da API ? obrigat?ria.", aPend[2], "A pend?ncia da vers?o deve ocupar a segunda posi??o.")
+        assertEquals("Título da API é obrigatório.", aPend[1], "A pendência do título deve ocupar a primeira posição.")
+        assertEquals("Versão da API é obrigatória.", aPend[2], "A pendência da versão deve ocupar a segunda posição.")
     EndIf
 
     oResp := OApiResp():new("200", "Resposta retornada com sucesso.")
 
-    assertEquals("200", oResp:getCode(), "O c?digo da resposta deve ser preservado.")
-    assertEquals("Resposta retornada com sucesso.", oResp:getDesc(), "A descri??o da resposta deve ser preservada.")
+    assertEquals("200", oResp:getCode(), "O código da resposta deve ser preservado.")
+    assertEquals("Resposta retornada com sucesso.", oResp:getDesc(), "A descrição da resposta deve ser preservada.")
 
     aRValid := oResp:validate()
-    assertEquals(0, Len(aRValid), "Resposta v?lida n?o deve gerar pend?ncias.")
+    assertEquals(0, Len(aRValid), "Resposta válida não deve gerar pendências.")
 
     oRInv  := OApiResp():new("", "")
     aRPend := oRInv:validate()
 
-    assertEquals(2, Len(aRPend), "C?digo e descri??o vazios devem gerar duas pend?ncias.")
+    assertEquals(2, Len(aRPend), "Código e descrição vazios devem gerar duas pendências.")
 
     If Len(aRPend) >= 2
-        assertEquals("C?digo da resposta ? obrigat?rio.", aRPend[1], "A pend?ncia do c?digo deve ocupar a primeira posi??o.")
-        assertEquals("Descri??o da resposta ? obrigat?ria.", aRPend[2], "A pend?ncia da descri??o deve ocupar a segunda posi??o.")
+        assertEquals("Código da resposta é obrigatório.", aRPend[1], "A pendência do código deve ocupar a primeira posição.")
+        assertEquals("Descrição da resposta é obrigatória.", aRPend[2], "A pendência da descrição deve ocupar a segunda posição.")
     EndIf
 
     oOper := OApiOper():new(;
         "GET",;
-        "Retorna a sauda??o",;
+        "Retorna a saudação",;
         "Retorna a resposta Hello World.";
     )
 
-    assertEquals("get", oOper:getMethod(), "O verbo suportado deve ser normalizado para min?sculas.")
-    assertEquals("Retorna a sauda??o", oOper:getSummary(), "O resumo da opera??o deve ser preservado.")
-    assertEquals("Retorna a resposta Hello World.", oOper:getDesc(), "A descri??o da opera??o deve ser preservada.")
+    assertEquals("get", oOper:getMethod(), "O verbo suportado deve ser normalizado para minúsculas.")
+    assertEquals("Retorna a saudação", oOper:getSummary(), "O resumo da operação deve ser preservado.")
+    assertEquals("Retorna a resposta Hello World.", oOper:getDesc(), "A descrição da operação deve ser preservada.")
 
     For nVerb := 1 To Len(aVerbs)
-        oVerb := OApiOper():new(aVerbs[nVerb][1], "Opera??o de teste", "Valida um verbo OpenAPI.")
+        oVerb := OApiOper():new(aVerbs[nVerb][1], "Operação de teste", "Valida um verbo OpenAPI.")
         assertEquals(aVerbs[nVerb][2], oVerb:getMethod(), "O verbo " + aVerbs[nVerb][1] + " deve ser aceito e normalizado.")
     Next nVerb
 
     oOper:addResp(oResp)
     aResps := oOper:getResps()
 
-    assertEquals(1, Len(aResps), "A resposta 200 deve ser inclu?da na opera??o.")
+    assertEquals(1, Len(aResps), "A resposta 200 deve ser incluída na operação.")
     If Len(aResps) >= 1
-        assertEquals("200", aResps[1]:getCode(), "O c?digo da resposta inclu?da deve ser preservado.")
+        assertEquals("200", aResps[1]:getCode(), "O código da resposta incluída deve ser preservado.")
         assertEquals("Resposta retornada com sucesso.", aResps[1]:getDesc(), "A resposta original deve ser preservada.")
     EndIf
     oNextRsp := OApiResp():new("201", "Recurso criado com sucesso.")
     AAdd(aResps, oNextRsp)
-    assertEquals(2, Len(aResps), "O array retornado deve aceitar altera??o externa isolada.")
+    assertEquals(2, Len(aResps), "O array retornado deve aceitar alteração externa isolada.")
 
     aResps := oOper:getResps()
-    assertEquals(1, Len(aResps), "A altera??o externa n?o deve modificar as respostas internas.")
+    assertEquals(1, Len(aResps), "A alteração externa não deve modificar as respostas internas.")
     If Len(aResps) >= 1
         assertEquals("200", aResps[1]:getCode(), "Uma nova consulta deve preservar somente a resposta interna.")
     EndIf
 
-    assertEquals(0, Len(oOper:validate()), "Opera??o com resposta v?lida n?o deve gerar pend?ncias.")
+    assertEquals(0, Len(oOper:validate()), "Operação com resposta válida não deve gerar pendências.")
 
     oNoResp := OApiOper():new("POST", "Cria um recurso", "Cria um recurso de teste.")
     aOPend := oNoResp:validate()
 
-    assertEquals(1, Len(aOPend), "Opera??o sem respostas deve gerar uma pend?ncia.")
+    assertEquals(1, Len(aOPend), "Operação sem respostas deve gerar uma pendência.")
     If Len(aOPend) >= 1
-        assertEquals("Opera??o post sem respostas.", aOPend[1], "A pend?ncia deve identificar o verbo normalizado.")
+        assertEquals("Operação post sem respostas.", aOPend[1], "A pendência deve identificar o verbo normalizado.")
     EndIf
 
     Try
-        oNoResp := OApiOper():new("CONNECT", "Verbo inv?lido", "N?o deve ser criado.")
+        oNoResp := OApiOper():new("CONNECT", "Verbo inválido", "Não deve ser criado.")
     Catch oError
         lBadVerb := .T.
         cBadVerb := oError:Description
     EndTry
 
     assertEquals(.T., lBadVerb, "Verbo desconhecido deve falhar imediatamente.")
-    assertEquals("Verbo OpenAPI n?o suportado: CONNECT.", cBadVerb, "O erro deve diagnosticar o verbo desconhecido.")
+    assertEquals("Verbo OpenAPI não suportado: CONNECT.", cBadVerb, "O erro deve diagnosticar o verbo desconhecido.")
 
-    oDupResp := OApiResp():new("200", "Resposta que n?o deve substituir a original.")
+    oDupResp := OApiResp():new("200", "Resposta que não deve substituir a original.")
 
     Try
         oOper:addResp(oDupResp)
@@ -223,10 +234,10 @@ User Function OApiTst() as Logical
     EndTry
 
     assertEquals(.T., lDupErr, "Resposta duplicada deve falhar imediatamente.")
-    assertEquals("Resposta duplicada: 200.", cDupErr, "O erro deve diagnosticar o c?digo duplicado.")
+    assertEquals("Resposta duplicada: 200.", cDupErr, "O erro deve diagnosticar o código duplicado.")
 
     aResps := oOper:getResps()
-    assertEquals(1, Len(aResps), "A falha n?o deve incluir nem substituir a resposta original.")
+    assertEquals(1, Len(aResps), "A falha não deve incluir nem substituir a resposta original.")
     If Len(aResps) >= 1
         assertEquals("Resposta retornada com sucesso.", aResps[1]:getDesc(), "A resposta original deve permanecer inalterada.")
     EndIf
@@ -234,9 +245,9 @@ User Function OApiTst() as Logical
     oOper:addResp(oNextRsp)
     aResps := oOper:getResps()
 
-    assertEquals(2, Len(aResps), "A opera??o deve continuar utiliz?vel ap?s a inclus?o rejeitada.")
+    assertEquals(2, Len(aResps), "A operação deve continuar utilizável após a inclusão rejeitada.")
     If Len(aResps) >= 2
-        assertEquals("201", aResps[2]:getCode(), "Uma nova resposta v?lida deve ser aceita ap?s a falha.")
+        assertEquals("201", aResps[2]:getCode(), "Uma nova resposta válida deve ser aceita após a falha.")
     EndIf
 
     oPath := OApiPath():new("/api/v1/hello")
@@ -245,18 +256,18 @@ User Function OApiTst() as Logical
     oPath:addOper(oOper)
     aOpers := oPath:getOpers()
 
-    assertEquals(1, Len(aOpers), "A opera??o GET v?lida deve ser inclu?da no path.")
+    assertEquals(1, Len(aOpers), "A operação GET válida deve ser incluída no path.")
     If Len(aOpers) >= 1
-        assertEquals("get", aOpers[1]:getMethod(), "O verbo da opera??o inclu?da deve ser preservado.")
-        assertEquals("Retorna a sauda??o", aOpers[1]:getSummary(), "O resumo da primeira opera??o deve ser preservado.")
+        assertEquals("get", aOpers[1]:getMethod(), "O verbo da operação incluída deve ser preservado.")
+        assertEquals("Retorna a saudação", aOpers[1]:getSummary(), "O resumo da primeira operação deve ser preservado.")
     EndIf
 
-    oDupOper := OApiOper():new("GET", "Resumo duplicado", "N?o deve substituir a opera??o original.")
+    oDupOper := OApiOper():new("GET", "Resumo duplicado", "Não deve substituir a operação original.")
     AAdd(aOpers, oDupOper)
-    assertEquals(2, Len(aOpers), "O array retornado deve aceitar altera??o externa isolada.")
+    assertEquals(2, Len(aOpers), "O array retornado deve aceitar alteração externa isolada.")
 
     aOpers := oPath:getOpers()
-    assertEquals(1, Len(aOpers), "A altera??o externa n?o deve modificar as opera??es internas.")
+    assertEquals(1, Len(aOpers), "A alteração externa não deve modificar as operações internas.")
 
     Try
         oBadPath := OApiPath():new("api/v1/hello")
@@ -266,7 +277,7 @@ User Function OApiTst() as Logical
     EndTry
 
     assertEquals(.T., lPathErr, "Path sem barra inicial deve falhar imediatamente.")
-    assertEquals("Path OpenAPI inv?lido: api/v1/hello.", cPathErr, "O erro deve diagnosticar o path inv?lido.")
+    assertEquals("Path OpenAPI inválido: api/v1/hello.", cPathErr, "O erro deve diagnosticar o path inválido.")
 
     Try
         oPath:addOper(oDupOper)
@@ -276,56 +287,56 @@ User Function OApiTst() as Logical
     EndTry
 
     assertEquals(.T., lDupOper, "Verbo duplicado no mesmo path deve falhar imediatamente.")
-    assertEquals("Opera??o duplicada no path /api/v1/hello: get.", cDupOper, "O erro deve identificar o path e o verbo duplicado.")
+    assertEquals("Operação duplicada no path /api/v1/hello: get.", cDupOper, "O erro deve identificar o path e o verbo duplicado.")
 
     aOpers := oPath:getOpers()
-    assertEquals(1, Len(aOpers), "A falha n?o deve incluir nem substituir a opera??o original.")
+    assertEquals(1, Len(aOpers), "A falha não deve incluir nem substituir a operação original.")
     If Len(aOpers) >= 1
-        assertEquals("Retorna a sauda??o", aOpers[1]:getSummary(), "A opera??o original deve permanecer inalterada.")
+        assertEquals("Retorna a saudação", aOpers[1]:getSummary(), "A operação original deve permanecer inalterada.")
     EndIf
 
-    oPost := OApiOper():new("POST", "Cria uma sauda??o", "Cria uma nova sauda??o.")
-    oPostRsp := OApiResp():new("201", "Sauda??o criada com sucesso.")
+    oPost := OApiOper():new("POST", "Cria uma saudação", "Cria uma nova saudação.")
+    oPostRsp := OApiResp():new("201", "Saudação criada com sucesso.")
     oPost:addResp(oPostRsp)
     oPath:addOper(oPost)
     aOpers := oPath:getOpers()
 
-    assertEquals(2, Len(aOpers), "O path deve continuar utiliz?vel ap?s a inclus?o rejeitada.")
+    assertEquals(2, Len(aOpers), "O path deve continuar utilizável após a inclusão rejeitada.")
     If Len(aOpers) >= 2
-        assertEquals("post", aOpers[2]:getMethod(), "Uma nova opera??o v?lida deve ser aceita ap?s a falha.")
+        assertEquals("post", aOpers[2]:getMethod(), "Uma nova operação válida deve ser aceita após a falha.")
     EndIf
 
-    assertEquals(0, Len(oPath:validate()), "Path com opera??es v?lidas n?o deve gerar pend?ncias.")
+    assertEquals(0, Len(oPath:validate()), "Path com operações válidas não deve gerar pendências.")
 
     oPendP := OApiPath():new("/api/v1/pending")
-    oPendOp := OApiOper():new("POST", "Opera??o pendente", "Opera??o sem resposta.")
+    oPendOp := OApiOper():new("POST", "Operação pendente", "Operação sem resposta.")
     oPendP:addOper(oPendOp)
     aPPend := oPendP:validate()
 
-    assertEquals(1, Len(aPPend), "Path com opera??o incompleta deve agregar uma pend?ncia.")
+    assertEquals(1, Len(aPPend), "Path com operação incompleta deve agregar uma pendência.")
     If Len(aPPend) >= 1
-        assertEquals("Path /api/v1/pending: Opera??o post sem respostas.", aPPend[1], "A pend?ncia deve identificar o path e o verbo.")
+        assertEquals("Path /api/v1/pending: Operação post sem respostas.", aPPend[1], "A pendência deve identificar o path e o verbo.")
     EndIf
 
     oDoc := OApiDoc():new(oInfo)
 
-    assertEquals("3.0.3", oDoc:getOpenApi(), "A vers?o OpenAPI deve ser fixa em 3.0.3.")
-    assertEquals("Hello World API", oDoc:getInfo():getTitle(), "As informa??es v?lidas devem ser preservadas no documento.")
-    assertEquals("1.0.0", oDoc:getInfo():getVer(), "A vers?o da API deve ser preservada no documento.")
+    assertEquals("3.0.3", oDoc:getOpenApi(), "A versão OpenAPI deve ser fixa em 3.0.3.")
+    assertEquals("Hello World API", oDoc:getInfo():getTitle(), "As informações válidas devem ser preservadas no documento.")
+    assertEquals("1.0.0", oDoc:getInfo():getVer(), "A versão da API deve ser preservada no documento.")
 
     oDoc:addPath(oPath)
     aPaths := oDoc:getPaths()
 
-    assertEquals(1, Len(aPaths), "O path Hello World completo deve ser inclu?do no documento.")
+    assertEquals(1, Len(aPaths), "O path Hello World completo deve ser incluído no documento.")
     If Len(aPaths) >= 1
-        assertEquals("/api/v1/hello", aPaths[1]:getPath(), "O path inclu?do deve ser preservado.")
+        assertEquals("/api/v1/hello", aPaths[1]:getPath(), "O path incluído deve ser preservado.")
     EndIf
 
     AAdd(aPaths, oPendP)
-    assertEquals(2, Len(aPaths), "O array retornado deve aceitar altera??o externa isolada.")
+    assertEquals(2, Len(aPaths), "O array retornado deve aceitar alteração externa isolada.")
 
     aPaths := oDoc:getPaths()
-    assertEquals(1, Len(aPaths), "A altera??o externa n?o deve modificar os paths internos.")
+    assertEquals(1, Len(aPaths), "A alteração externa não deve modificar os paths internos.")
     If Len(aPaths) >= 1
         assertEquals("/api/v1/hello", aPaths[1]:getPath(), "Uma nova consulta deve preservar somente o path interno.")
     EndIf
@@ -343,49 +354,49 @@ User Function OApiTst() as Logical
     assertEquals("Path duplicado no documento: /api/v1/hello.", cDupPath, "O erro deve identificar o path duplicado.")
 
     aPaths := oDoc:getPaths()
-    assertEquals(1, Len(aPaths), "A falha n?o deve incluir nem substituir o path original.")
+    assertEquals(1, Len(aPaths), "A falha não deve incluir nem substituir o path original.")
     If Len(aPaths) >= 1
         assertEquals("/api/v1/hello", aPaths[1]:getPath(), "O path original deve permanecer inalterado.")
     EndIf
 
     oUniPath := OApiPath():new("/api/v1/unique")
-    oUniOper := OApiOper():new("GET", "Consulta ?nica", "Consulta um recurso ?nico.")
-    oUniResp := OApiResp():new("200", "Recurso ?nico retornado com sucesso.")
+    oUniOper := OApiOper():new("GET", "Consulta única", "Consulta um recurso único.")
+    oUniResp := OApiResp():new("200", "Recurso único retornado com sucesso.")
     oUniOper:addResp(oUniResp)
     oUniPath:addOper(oUniOper)
     oDoc:addPath(oUniPath)
     aPaths := oDoc:getPaths()
 
-    assertEquals(2, Len(aPaths), "O documento deve continuar utiliz?vel ap?s a inclus?o rejeitada.")
+    assertEquals(2, Len(aPaths), "O documento deve continuar utilizável após a inclusão rejeitada.")
     If Len(aPaths) >= 2
-        assertEquals("/api/v1/unique", aPaths[2]:getPath(), "Um path ?nico deve ser aceito ap?s a falha.")
+        assertEquals("/api/v1/unique", aPaths[2]:getPath(), "Um path único deve ser aceito após a falha.")
     EndIf
 
     aDValid := oDoc:validate()
-    assertEquals(0, Len(aDValid), "Documento v?lido n?o deve gerar pend?ncias.")
+    assertEquals(0, Len(aDValid), "Documento válido não deve gerar pendências.")
 
     oBadInfo := OApiInfo():new("", "", "")
     oBadDoc := OApiDoc():new(oBadInfo)
     aDInv := oBadDoc:validate()
 
-    assertEquals(3, Len(aDInv), "Informa??es inv?lidas e aus?ncia de paths devem gerar tr?s pend?ncias.")
+    assertEquals(3, Len(aDInv), "Informações inválidas e ausência de paths devem gerar três pendências.")
     If Len(aDInv) >= 3
-        assertEquals("T?tulo da API ? obrigat?rio.", aDInv[1], "A pend?ncia do t?tulo deve ocupar a primeira posi??o.")
-        assertEquals("Vers?o da API ? obrigat?ria.", aDInv[2], "A pend?ncia da vers?o deve ocupar a segunda posi??o.")
-        assertEquals("Documento OpenAPI deve possuir ao menos um path.", aDInv[3], "A aus?ncia de paths deve ocupar a terceira posi??o.")
+        assertEquals("Título da API é obrigatório.", aDInv[1], "A pendência do título deve ocupar a primeira posição.")
+        assertEquals("Versão da API é obrigatória.", aDInv[2], "A pendência da versão deve ocupar a segunda posição.")
+        assertEquals("Documento OpenAPI deve possuir ao menos um path.", aDInv[3], "A ausência de paths deve ocupar a terceira posição.")
     EndIf
 
     oPendDoc := OApiDoc():new(oInfo)
     oPendDoc:addPath(oPendP)
     aDPend := oPendDoc:validate()
 
-    assertEquals(1, Len(aDPend), "Documento com path incompleto deve agregar uma pend?ncia.")
+    assertEquals(1, Len(aDPend), "Documento com path incompleto deve agregar uma pendência.")
     If Len(aDPend) >= 1
-        assertEquals("Path /api/v1/pending: Opera??o post sem respostas.", aDPend[1], "A pend?ncia do path deve manter o contexto no documento.")
+        assertEquals("Path /api/v1/pending: Operação post sem respostas.", aDPend[1], "A pendência do path deve manter o contexto no documento.")
     EndIf
 
     oInvResp := OApiResp():new("", "")
-    oInvOper := OApiOper():new("GET", "Resposta inv?lida", "Valida pend?ncias transitivas.")
+    oInvOper := OApiOper():new("GET", "Resposta inválida", "Valida pendências transitivas.")
     oInvOper:addResp(oInvResp)
     oInvPath := OApiPath():new("/api/v1/invalid")
     oInvPath:addOper(oInvOper)
@@ -393,10 +404,10 @@ User Function OApiTst() as Logical
     oInvDoc:addPath(oInvPath)
     aInvPend := oInvDoc:validate()
 
-    assertEquals(2, Len(aInvPend), "Documento deve agregar as duas pend?ncias da resposta inv?lida.")
+    assertEquals(2, Len(aInvPend), "Documento deve agregar as duas pendências da resposta inválida.")
     If Len(aInvPend) >= 2
-        assertEquals("Path /api/v1/invalid: Opera??o get, resposta <vazio>: C?digo da resposta ? obrigat?rio.", aInvPend[1], "A primeira pend?ncia deve manter o contexto completo da resposta.")
-        assertEquals("Path /api/v1/invalid: Opera??o get, resposta <vazio>: Descri??o da resposta ? obrigat?ria.", aInvPend[2], "A segunda pend?ncia deve manter o contexto completo da resposta.")
+        assertEquals("Path /api/v1/invalid: Operação get, resposta <vazio>: Código da resposta é obrigatório.", aInvPend[1], "A primeira pendência deve manter o contexto completo da resposta.")
+        assertEquals("Path /api/v1/invalid: Operação get, resposta <vazio>: Descrição da resposta é obrigatória.", aInvPend[2], "A segunda pendência deve manter o contexto completo da resposta.")
     EndIf
 
     oMultiDoc := OApiDoc():new(oInfo)
@@ -404,11 +415,11 @@ User Function OApiTst() as Logical
     oMultiDoc:addPath(oInvPath)
     aMulti := oMultiDoc:validate()
 
-    assertEquals(3, Len(aMulti), "Documento deve agregar pend?ncias de todos os paths em ordem.")
+    assertEquals(3, Len(aMulti), "Documento deve agregar pendências de todos os paths em ordem.")
     If Len(aMulti) >= 3
-        assertEquals("Path /api/v1/pending: Opera??o post sem respostas.", aMulti[1], "A pend?ncia do primeiro path deve ocupar a primeira posi??o.")
-        assertEquals("Path /api/v1/invalid: Opera??o get, resposta <vazio>: C?digo da resposta ? obrigat?rio.", aMulti[2], "A primeira pend?ncia do segundo path deve ocupar a segunda posi??o.")
-        assertEquals("Path /api/v1/invalid: Opera??o get, resposta <vazio>: Descri??o da resposta ? obrigat?ria.", aMulti[3], "A segunda pend?ncia do segundo path deve ocupar a terceira posi??o.")
+        assertEquals("Path /api/v1/pending: Operação post sem respostas.", aMulti[1], "A pendência do primeiro path deve ocupar a primeira posição.")
+        assertEquals("Path /api/v1/invalid: Operação get, resposta <vazio>: Código da resposta é obrigatório.", aMulti[2], "A primeira pendência do segundo path deve ocupar a segunda posição.")
+        assertEquals("Path /api/v1/invalid: Operação get, resposta <vazio>: Descrição da resposta é obrigatória.", aMulti[3], "A segunda pendência do segundo path deve ocupar a terceira posição.")
     EndIf
 
     oJson := OApiJson():new()
@@ -420,17 +431,17 @@ User Function OApiTst() as Logical
         cJsonErr := oError:Description
     EndTry
 
-    assertEquals(.T., lJsonErr, "Documento incompleto deve ser rejeitado antes da serializa??o.")
-    assertEquals("Documento OpenAPI inv?lido: T?tulo da API ? obrigat?rio. | Vers?o da API ? obrigat?ria. | Documento OpenAPI deve possuir ao menos um path.", cJsonErr, "O erro deve agregar todas as pend?ncias sem dados de ambiente.")
-    assertEquals("", cJson, "Falha de valida??o n?o deve retornar JSON parcial.")
+    assertEquals(.T., lJsonErr, "Documento incompleto deve ser rejeitado antes da serialização.")
+    assertEquals("Documento OpenAPI inválido: Título da API é obrigatório. | Versão da API é obrigatória. | Documento OpenAPI deve possuir ao menos um path.", cJsonErr, "O erro deve agregar todas as pendências sem dados de ambiente.")
+    assertEquals("", cJson, "Falha de validação não deve retornar JSON parcial.")
 
     oJInfo := OApiInfo():new(;
         "Hello World API",;
-        "API de demonstra??o do n?cleo OpenAPI.",;
+        "API de demonstração do núcleo OpenAPI.",;
         "1.0.0";
     )
     oJResp := OApiResp():new("200", "Hello World retornado com sucesso.")
-    oJBad := OApiResp():new("400", "Requisi??o inv?lida.")
+    oJBad := OApiResp():new("400", "Requisição inválida.")
     oJOper := OApiOper():new(;
         "GET",;
         "Hello World",;
@@ -438,8 +449,8 @@ User Function OApiTst() as Logical
     )
     oJOper:addResp(oJResp)
     oJOper:addResp(oJBad)
-    oJPost := OApiOper():new("POST", "Cria sauda??o", "Cria uma nova sauda??o.")
-    oJPResp := OApiResp():new("201", "Sauda??o criada com sucesso.")
+    oJPost := OApiOper():new("POST", "Cria saudação", "Cria uma nova saudação.")
+    oJPResp := OApiResp():new("201", "Saudação criada com sucesso.")
     oJPost:addResp(oJPResp)
     oJPath := OApiPath():new("/api/v1/hello")
     oJPath:addOper(oJOper)
@@ -454,25 +465,25 @@ User Function OApiTst() as Logical
     oDoc:addPath(oJStat)
 
     cJson := oJson:toJson(oDoc)
-    assertEquals("C", ValType(cJson), "A serializa??o v?lida deve retornar character.")
-    assertEquals(.F., Empty(cJson), "A serializa??o v?lida deve retornar conte?do JSON.")
+    assertEquals("C", ValType(cJson), "A serialização válida deve retornar character.")
+    assertEquals(.F., Empty(cJson), "A serialização válida deve retornar conteúdo JSON.")
 
     jParsed := JsonObject():New()
     cParse := jParsed:FromJson(cJson)
     assertEquals(.T., Empty(cParse), "O JSON produzido deve ser aceito por JsonObject:FromJson().")
 
     If Empty(cParse)
-        assertEquals("3.0.3", jParsed["openapi"], "O JSON deve preservar a vers?o OpenAPI.")
-        assertEquals("Hello World API", jParsed["info"]["title"], "O JSON deve preservar o t?tulo da API.")
-        assertEquals("API de demonstra??o do n?cleo OpenAPI.", jParsed["info"]["description"], "O JSON deve preservar a descri??o da API.")
-        assertEquals("1.0.0", jParsed["info"]["version"], "O JSON deve preservar a vers?o da API.")
-        assertEquals("Hello World", jParsed["paths"]["/api/v1/hello"]["get"]["summary"], "O JSON deve preservar o resumo da opera??o GET.")
-        assertEquals("Retorna uma mensagem Hello World gerada por um endpoint TL++.", jParsed["paths"]["/api/v1/hello"]["get"]["description"], "O JSON deve preservar a descri??o da opera??o GET.")
-        assertEquals("Hello World retornado com sucesso.", jParsed["paths"]["/api/v1/hello"]["get"]["responses"]["200"]["description"], "O JSON deve preservar a descri??o da resposta 200.")
-        assertEquals("Requisi??o inv?lida.", jParsed["paths"]["/api/v1/hello"]["get"]["responses"]["400"]["description"], "O JSON deve preservar a segunda resposta da opera??o GET.")
-        assertEquals("Cria sauda??o", jParsed["paths"]["/api/v1/hello"]["post"]["summary"], "O JSON deve preservar a segunda opera??o do path Hello World.")
-        assertEquals("Sauda??o criada com sucesso.", jParsed["paths"]["/api/v1/hello"]["post"]["responses"]["201"]["description"], "O JSON deve preservar a resposta 201 da opera??o POST.")
-        assertEquals("Consulta status", jParsed["paths"]["/api/v1/status"]["get"]["summary"], "O JSON deve preservar a opera??o GET do segundo path.")
+        assertEquals("3.0.3", jParsed["openapi"], "O JSON deve preservar a versão OpenAPI.")
+        assertEquals("Hello World API", jParsed["info"]["title"], "O JSON deve preservar o título da API.")
+        assertEquals("API de demonstração do núcleo OpenAPI.", jParsed["info"]["description"], "O JSON deve preservar a descrição da API.")
+        assertEquals("1.0.0", jParsed["info"]["version"], "O JSON deve preservar a versão da API.")
+        assertEquals("Hello World", jParsed["paths"]["/api/v1/hello"]["get"]["summary"], "O JSON deve preservar o resumo da operação GET.")
+        assertEquals("Retorna uma mensagem Hello World gerada por um endpoint TL++.", jParsed["paths"]["/api/v1/hello"]["get"]["description"], "O JSON deve preservar a descrição da operação GET.")
+        assertEquals("Hello World retornado com sucesso.", jParsed["paths"]["/api/v1/hello"]["get"]["responses"]["200"]["description"], "O JSON deve preservar a descrição da resposta 200.")
+        assertEquals("Requisição inválida.", jParsed["paths"]["/api/v1/hello"]["get"]["responses"]["400"]["description"], "O JSON deve preservar a segunda resposta da operação GET.")
+        assertEquals("Cria saudação", jParsed["paths"]["/api/v1/hello"]["post"]["summary"], "O JSON deve preservar a segunda operação do path Hello World.")
+        assertEquals("Saudação criada com sucesso.", jParsed["paths"]["/api/v1/hello"]["post"]["responses"]["201"]["description"], "O JSON deve preservar a resposta 201 da operação POST.")
+        assertEquals("Consulta status", jParsed["paths"]["/api/v1/status"]["get"]["summary"], "O JSON deve preservar a operação GET do segundo path.")
         assertEquals("Status retornado com sucesso.", jParsed["paths"]["/api/v1/status"]["get"]["responses"]["200"]["description"], "O JSON deve preservar a resposta 200 do segundo path.")
     EndIf
 
@@ -640,6 +651,62 @@ User Function OApiTst() as Logical
     assertEquals(1, Len(aSchPend), "Pendência de items aninhados deve ser propagada.")
     If Len(aSchPend) >= 1
         assertEquals("Item: Schema array sem items.", aSchPend[1], "A pendência deve manter o contexto do item.")
+    EndIf
+
+    oParStrSch := OApiSchema():new("string")
+    oParamA := OApiParam():new("  Name  ", "PATH", .T., oParStrSch, "Nome do recurso.")
+
+    assertEquals("Name", oParamA:getName(), "O nome deve ser aparado preservando a caixa.")
+    assertEquals("path", oParamA:getIn(), "A localização deve ser normalizada para minúsculas.")
+    assertEquals(.T., oParamA:getReq(), "A obrigatoriedade informada deve ser preservada.")
+    assertEquals("Nome do recurso.", oParamA:getDesc(), "A descrição deve ser preservada.")
+    assertEquals("string", oParamA:getSchema():getKind(), "O schema do parâmetro deve ser preservado.")
+    assertEquals(0, Len(oParamA:validate()), "Parâmetro path obrigatório e válido não deve gerar pendências.")
+
+    assertEquals("header", OApiParam():new("X-Test", "HEADER", .F., oParStrSch, ""):getIn(), "A localização header deve ser normalizada para minúsculas.")
+
+    Try
+        oParamBad := OApiParam():new("token", "cookie", .T., oParStrSch, "")
+    Catch oError
+        lInErr := .T.
+        cInErr := oError:Description
+    EndTry
+
+    assertEquals(.T., lInErr, "Localização desconhecida deve falhar imediatamente.")
+    assertEquals("Localização de parâmetro OpenAPI não suportada: cookie.", cInErr, "O erro deve diagnosticar a localização desconhecida.")
+
+    oParamP := OApiParam():new("id", "path", .F., oParStrSch, "")
+    aParPend := oParamP:validate()
+
+    assertEquals(1, Len(aParPend), "Parâmetro path não obrigatório deve gerar uma pendência.")
+    If Len(aParPend) >= 1
+        assertEquals("Parâmetro path deve ser obrigatório.", aParPend[1], "A pendência deve identificar a obrigatoriedade ausente.")
+    EndIf
+
+    oParamE := OApiParam():new("", "query", .F., oParStrSch, "")
+    aParPend := oParamE:validate()
+
+    assertEquals(1, Len(aParPend), "Parâmetro sem nome deve gerar uma pendência.")
+    If Len(aParPend) >= 1
+        assertEquals("Nome do parâmetro é obrigatório.", aParPend[1], "A pendência deve identificar a ausência do nome.")
+    EndIf
+
+    oParamE2 := OApiParam():new("", "path", .F., oParStrSch, "")
+    aParPend := oParamE2:validate()
+
+    assertEquals(2, Len(aParPend), "Nome vazio e path não obrigatório devem gerar duas pendências.")
+    If Len(aParPend) >= 2
+        assertEquals("Nome do parâmetro é obrigatório.", aParPend[1], "A pendência do nome deve ocupar a primeira posição.")
+        assertEquals("Parâmetro path deve ser obrigatório.", aParPend[2], "A pendência da obrigatoriedade deve ocupar a segunda posição.")
+    EndIf
+
+    oParObjSch := OApiSchema():new("object")
+    oParamS := OApiParam():new("filtro", "query", .F., oParObjSch, "")
+    aParPend := oParamS:validate()
+
+    assertEquals(1, Len(aParPend), "Pendência do schema do parâmetro deve ser propagada.")
+    If Len(aParPend) >= 1
+        assertEquals("Schema do parâmetro filtro: Schema object sem propriedades.", aParPend[1], "A pendência deve manter o contexto do parâmetro.")
     EndIf
 
 Return .T.
