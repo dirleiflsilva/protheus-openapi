@@ -34,26 +34,37 @@ return self
 */
 method toJson(oDoc as object) as character class OApiJson
 
-    Local aPend  := {} as Array
-    Local aPaths := {} as Array
-    Local aOpers := {} as Array
-    Local aResps := {} as Array
-    Local cError := "" as Character
-    Local cPath  := "" as Character
-    Local cMethod := "" as Character
-    Local cCode  := "" as Character
-    Local jRoot  as Json
-    Local jInfo  as Json
-    Local jPaths as Json
-    Local jPath  as Json
-    Local jOper  as Json
-    Local jResps as Json
-    Local jResp  as Json
-    Local oInfo  as Object
-    Local nPend  := 0 as Numeric
-    Local nPath  := 0 as Numeric
-    Local nOper  := 0 as Numeric
-    Local nResp  := 0 as Numeric
+    Local aPend    := {} as Array
+    Local aPaths   := {} as Array
+    Local aOpers   := {} as Array
+    Local aResps   := {} as Array
+    Local aParams  := {} as Array
+    Local aSchemas := {} as Array
+    Local cError   := "" as Character
+    Local cPath    := "" as Character
+    Local cMethod  := "" as Character
+    Local cCode    := "" as Character
+    Local jRoot    as Json
+    Local jInfo    as Json
+    Local jPaths   as Json
+    Local jPath    as Json
+    Local jOper    as Json
+    Local jResps   as Json
+    Local jResp    as Json
+    Local jParam   as Json
+    Local jBody    as Json
+    Local jContent as Json
+    Local jMedia   as Json
+    Local jComps   as Json
+    Local jSchemas as Json
+    Local oInfo    as Object
+    Local oBody    as Object
+    Local nPend    := 0 as Numeric
+    Local nPath    := 0 as Numeric
+    Local nOper    := 0 as Numeric
+    Local nResp    := 0 as Numeric
+    Local nParam   := 0 as Numeric
+    Local nSchema  := 0 as Numeric
 
     aPend := oDoc:validate()
 
@@ -96,12 +107,51 @@ method toJson(oDoc as object) as character class OApiJson
 
             jOper["summary"]     := aOpers[nOper]:getSummary()
             jOper["description"] := aOpers[nOper]:getDesc()
+            aParams := aOpers[nOper]:getParams()
+
+            If !Empty(aParams)
+                jOper["parameters"] := {}
+
+                For nParam := 1 To Len(aParams)
+                    jParam := JsonObject():New()
+                    jParam["name"]     := aParams[nParam]:getName()
+                    jParam["in"]       := aParams[nParam]:getIn()
+                    jParam["required"] := aParams[nParam]:getReq()
+                    jParam["schema"]   := SchToJson(aParams[nParam]:getSchema())
+                    AAdd(jOper["parameters"], jParam)
+                Next nParam
+            EndIf
+
+            oBody := aOpers[nOper]:getBody()
+
+            If oBody != Nil
+                jBody    := JsonObject():New()
+                jContent := JsonObject():New()
+                jMedia   := JsonObject():New()
+
+                jMedia["schema"] := SchToJson(oBody:getSchema())
+                jContent["application/json"] := jMedia
+                jBody["description"] := oBody:getDesc()
+                jBody["required"]    := oBody:getReq()
+                jBody["content"]     := jContent
+                jOper["requestBody"] := jBody
+            EndIf
+
             aResps := aOpers[nOper]:getResps()
 
             For nResp := 1 To Len(aResps)
                 cCode := aResps[nResp]:getCode()
                 jResp := JsonObject():New()
                 jResp["description"] := aResps[nResp]:getDesc()
+
+                If aResps[nResp]:getSchema() != Nil
+                    jContent := JsonObject():New()
+                    jMedia   := JsonObject():New()
+                    jMedia["schema"] := SchToJson(aResps[nResp]:getSchema())
+                    jContent["application/json"] := jMedia
+                    jResp["content"] := jContent
+                EndIf
+
                 jResps[cCode] := jResp
             Next nResp
 
@@ -114,4 +164,62 @@ method toJson(oDoc as object) as character class OApiJson
 
     jRoot["paths"] := jPaths
 
+    aSchemas := oDoc:getSchemas()
+
+    If !Empty(aSchemas)
+        jComps   := JsonObject():New()
+        jSchemas := JsonObject():New()
+
+        For nSchema := 1 To Len(aSchemas)
+            jSchemas[aSchemas[nSchema][1]] := SchToJson(aSchemas[nSchema][2])
+        Next nSchema
+
+        jComps["schemas"] := jSchemas
+        jRoot["components"] := jComps
+    EndIf
+
 return jRoot:ToJson()
+
+/*/{Protheus.doc} SchToJson
+    Serializa recursivamente um schema OpenAPI como estrutura JSON.
+    @type function
+    @author Dirlei Silva
+    @since 2026-08-26
+    @param oSchema, object, Schema que será serializado
+    @return json, Estrutura JSON equivalente ao schema
+*/
+Static Function SchToJson(oSchema as object) as Json
+
+    Local jSchema := JsonObject():New() as Json
+    Local jProps  as Json
+    Local cKind   := oSchema:getKind() as Character
+    Local aProps  := {} as Array
+    Local nProp   := 0 as Numeric
+
+    If cKind == "ref"
+        jSchema["$ref"] := "#/components/schemas/" + oSchema:getRef()
+    ElseIf cKind == "object"
+        jSchema["type"] := "object"
+        jProps := JsonObject():New()
+        aProps := oSchema:getProps()
+
+        For nProp := 1 To Len(aProps)
+            jProps[aProps[nProp][1]] := SchToJson(aProps[nProp][2])
+        Next nProp
+
+        jSchema["properties"] := jProps
+        jSchema["required"]   := {}
+
+        For nProp := 1 To Len(aProps)
+            If aProps[nProp][3]
+                AAdd(jSchema["required"], aProps[nProp][1])
+            EndIf
+        Next nProp
+    ElseIf cKind == "array"
+        jSchema["type"]  := "array"
+        jSchema["items"] := SchToJson(oSchema:getItems())
+    Else
+        jSchema["type"] := cKind
+    EndIf
+
+Return jSchema

@@ -1,0 +1,88 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Hello World API",
+    "description": "API de demonstração do núcleo OpenAPI.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/v1/hello": {
+      "get": {
+        "summary": "Hello World",
+        "description": "Retorna uma mensagem Hello World gerada por um endpoint TL++.",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "language",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Hello World retornado com sucesso.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/HelloResponse" }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Cria saudação",
+        "description": "Cria uma nova saudação.",
+        "requestBody": {
+          "description": "Corpo da requisição de saudação.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/HelloRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Saudação criada com sucesso.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/HelloResponse" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "HelloRequest": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "language": { "type": "string" }
+        },
+        "required": ["name"]
+      },
+      "HelloResponse": {
+        "type": "object",
+        "properties": {
+          "message": { "type": "string" },
+          "language": { "type": "string" },
+          "status": { "type": "string" },
+          "tags": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        },
+        "required": ["message", "language", "status"]
+      }
+    }
+  }
+}

@@ -1167,6 +1167,26 @@ if (-not $serializeMatch.Success -or $serializeMatch.Index -lt $newMatch.Index) 
     throw "ToJson() ausente após a criação do objeto JSON."
 }
 
+Assert-Match -Content $jsonValidation `
+    -Pattern '(?im)^[\t ]*Static[\t ]+Function[\t ]+SchToJson[\t ]*\(' `
+    -Message "Função auxiliar privada SchToJson ausente no OApiJson."
+
+foreach ($pattern in @(
+    '(?i)\[[\t ]*"parameters"[\t ]*\]',
+    '(?i)\[[\t ]*"requestBody"[\t ]*\]',
+    '(?i)\[[\t ]*"content"[\t ]*\]',
+    '(?i)\[[\t ]*"application/json"[\t ]*\]',
+    '(?i)\[[\t ]*"components"[\t ]*\]',
+    '(?i)\[[\t ]*"\$ref"[\t ]*\]',
+    '(?i)\[[\t ]*"required"[\t ]*\]',
+    '(?i)\[[\t ]*"items"[\t ]*\]',
+    '(?i)\[[\t ]*"properties"[\t ]*\]'
+)) {
+    Assert-Match -Content $jsonValidation `
+        -Pattern $pattern `
+        -Message "Serialização obrigatória ausente no OApiJson: $pattern"
+}
+
 if (-not (Test-Path -LiteralPath $apiPath -PathType Leaf)) {
     throw "Fonte do endpoint OApiCore não encontrado: $apiPath"
 }

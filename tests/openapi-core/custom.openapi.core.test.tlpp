@@ -193,6 +193,24 @@ User Function OApiTst() as Logical
     Local oRespNestBad  as Object
     Local oSchObjNest   as Object
     Local oSchRefNest   as Object
+    Local oJ7Info    as Object
+    Local oJ7Doc     as Object
+    Local oJ7SchemaHelloReq  as Object
+    Local oJ7SchemaHelloResp as Object
+    Local oJ7SchemaTags      as Object
+    Local oJ7Get     as Object
+    Local oJ7Post    as Object
+    Local oJ7ParamName as Object
+    Local oJ7ParamLang as Object
+    Local oJ7RespGet  as Object
+    Local oJ7RespPost as Object
+    Local oJ7SchRefResp  as Object
+    Local oJ7SchRefResp2 as Object
+    Local oJ7SchRefReq   as Object
+    Local oJ7PathHello   as Object
+    Local cJ7Json   := "" as Character
+    Local cJ7Parse  := "" as Character
+    Local jJ7Parsed as Json
 
     assertEquals(.T., .T., "O harness PROBAT deve aceitar valores iguais.")
 
@@ -1045,6 +1063,83 @@ User Function OApiTst() as Logical
     assertEquals(1, Len(aDocPend), "Referência inexistente em propriedade aninhada deve gerar uma pendência.")
     If Len(aDocPend) >= 1
         assertEquals("Path /api/v1/nested: Operação get, resposta 200, propriedade child: referência inexistente: Missing.", aDocPend[1], "A pendência deve manter o contexto completo até a propriedade aninhada.")
+    EndIf
+
+    oJ7Info := OApiInfo():new("Hello World API", "API de demonstração do núcleo OpenAPI.", "1.0.0")
+    oJ7Doc  := OApiDoc():new(oJ7Info)
+
+    oJ7SchemaHelloReq := OApiSchema():new("object")
+    oJ7SchemaHelloReq:addProp("name", OApiSchema():new("string"), .T.)
+    oJ7SchemaHelloReq:addProp("language", OApiSchema():new("string"), .F.)
+    oJ7Doc:addSchema("HelloRequest", oJ7SchemaHelloReq)
+
+    oJ7SchemaTags := OApiSchema():new("array")
+    oJ7SchemaTags:setItems(OApiSchema():new("string"))
+
+    oJ7SchemaHelloResp := OApiSchema():new("object")
+    oJ7SchemaHelloResp:addProp("message", OApiSchema():new("string"), .T.)
+    oJ7SchemaHelloResp:addProp("language", OApiSchema():new("string"), .T.)
+    oJ7SchemaHelloResp:addProp("status", OApiSchema():new("string"), .T.)
+    oJ7SchemaHelloResp:addProp("tags", oJ7SchemaTags, .F.)
+    oJ7Doc:addSchema("HelloResponse", oJ7SchemaHelloResp)
+
+    oJ7Get := OApiOper():new("GET", "Hello World", "Retorna uma mensagem Hello World gerada por um endpoint TL++.")
+    oJ7ParamName := OApiParam():new("name", "path", .T., OApiSchema():new("string"), "")
+    oJ7ParamLang := OApiParam():new("language", "query", .F., OApiSchema():new("string"), "")
+    oJ7Get:addParam(oJ7ParamName)
+    oJ7Get:addParam(oJ7ParamLang)
+    oJ7RespGet := OApiResp():new("200", "Hello World retornado com sucesso.")
+    oJ7SchRefResp := OApiSchema():new("ref")
+    oJ7SchRefResp:setRef("HelloResponse")
+    oJ7RespGet:setSchema(oJ7SchRefResp)
+    oJ7Get:addResp(oJ7RespGet)
+
+    oJ7Post := OApiOper():new("POST", "Cria saudação", "Cria uma nova saudação.")
+    oJ7SchRefReq := OApiSchema():new("ref")
+    oJ7SchRefReq:setRef("HelloRequest")
+    oJ7Post:setBody(OApiBody():new(.T., oJ7SchRefReq, "Corpo da requisição de saudação."))
+    oJ7RespPost := OApiResp():new("201", "Saudação criada com sucesso.")
+    oJ7SchRefResp2 := OApiSchema():new("ref")
+    oJ7SchRefResp2:setRef("HelloResponse")
+    oJ7RespPost:setSchema(oJ7SchRefResp2)
+    oJ7Post:addResp(oJ7RespPost)
+
+    oJ7PathHello := OApiPath():new("/api/v1/hello")
+    oJ7PathHello:addOper(oJ7Get)
+    oJ7PathHello:addOper(oJ7Post)
+    oJ7Doc:addPath(oJ7PathHello)
+
+    assertEquals(0, Len(oJ7Doc:validate()), "Documento completo de parâmetros e schemas não deve gerar pendências.")
+
+    cJ7Json := oJson:toJson(oJ7Doc)
+
+    jJ7Parsed := JsonObject():New()
+    cJ7Parse := jJ7Parsed:FromJson(cJ7Json)
+    assertEquals(.T., Empty(cJ7Parse), "O JSON de parâmetros e schemas deve ser aceito por JsonObject:FromJson().")
+
+    If Empty(cJ7Parse)
+        assertEquals(2, Len(jJ7Parsed["paths"]["/api/v1/hello"]["get"]["parameters"]), "Os dois parâmetros GET devem ser serializados.")
+        assertEquals("name", jJ7Parsed["paths"]["/api/v1/hello"]["get"]["parameters"][1]["name"], "O primeiro parâmetro deve preservar a ordem e o nome.")
+        assertEquals("path", jJ7Parsed["paths"]["/api/v1/hello"]["get"]["parameters"][1]["in"], "A localização do primeiro parâmetro deve ser serializada.")
+        assertEquals(.T., jJ7Parsed["paths"]["/api/v1/hello"]["get"]["parameters"][1]["required"], "A obrigatoriedade do primeiro parâmetro deve ser serializada.")
+        assertEquals("string", jJ7Parsed["paths"]["/api/v1/hello"]["get"]["parameters"][1]["schema"]["type"], "O schema do primeiro parâmetro deve ser serializado.")
+        assertEquals("language", jJ7Parsed["paths"]["/api/v1/hello"]["get"]["parameters"][2]["name"], "O segundo parâmetro deve preservar a ordem e o nome.")
+        assertEquals("query", jJ7Parsed["paths"]["/api/v1/hello"]["get"]["parameters"][2]["in"], "A localização do segundo parâmetro deve ser serializada.")
+        assertEquals(.F., jJ7Parsed["paths"]["/api/v1/hello"]["get"]["parameters"][2]["required"], "A obrigatoriedade do segundo parâmetro deve ser serializada.")
+        assertEquals("#/components/schemas/HelloResponse", jJ7Parsed["paths"]["/api/v1/hello"]["get"]["responses"]["200"]["content"]["application/json"]["schema"]["$ref"], "A resposta 200 do GET deve referenciar o componente HelloResponse.")
+        assertEquals("Corpo da requisição de saudação.", jJ7Parsed["paths"]["/api/v1/hello"]["post"]["requestBody"]["description"], "A descrição do request body deve ser serializada.")
+        assertEquals(.T., jJ7Parsed["paths"]["/api/v1/hello"]["post"]["requestBody"]["required"], "A obrigatoriedade do request body deve ser serializada.")
+        assertEquals("#/components/schemas/HelloRequest", jJ7Parsed["paths"]["/api/v1/hello"]["post"]["requestBody"]["content"]["application/json"]["schema"]["$ref"], "O request body do POST deve referenciar o componente HelloRequest.")
+        assertEquals("#/components/schemas/HelloResponse", jJ7Parsed["paths"]["/api/v1/hello"]["post"]["responses"]["201"]["content"]["application/json"]["schema"]["$ref"], "A resposta 201 do POST deve referenciar o componente HelloResponse.")
+        assertEquals("object", jJ7Parsed["components"]["schemas"]["HelloRequest"]["type"], "O componente HelloRequest deve ser serializado como object.")
+        assertEquals("string", jJ7Parsed["components"]["schemas"]["HelloRequest"]["properties"]["name"]["type"], "A propriedade name do componente HelloRequest deve ser serializada.")
+        assertEquals(1, Len(jJ7Parsed["components"]["schemas"]["HelloRequest"]["required"]), "Somente name deve ser obrigatório no componente HelloRequest.")
+        If Len(jJ7Parsed["components"]["schemas"]["HelloRequest"]["required"]) >= 1
+            assertEquals("name", jJ7Parsed["components"]["schemas"]["HelloRequest"]["required"][1], "O nome obrigatório deve ser preservado no componente HelloRequest.")
+        EndIf
+        assertEquals("array", jJ7Parsed["components"]["schemas"]["HelloResponse"]["properties"]["tags"]["type"], "A propriedade tags do componente HelloResponse deve ser serializada como array.")
+        assertEquals("string", jJ7Parsed["components"]["schemas"]["HelloResponse"]["properties"]["tags"]["items"]["type"], "Os items da propriedade tags devem ser serializados.")
+        assertEquals(3, Len(jJ7Parsed["components"]["schemas"]["HelloResponse"]["required"]), "Message, language e status devem ser obrigatórios no componente HelloResponse.")
     EndIf
 
 Return .T.
