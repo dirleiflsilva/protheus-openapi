@@ -1,6 +1,6 @@
 # Parâmetros e schemas do modelo OpenAPI
 
-## Ambiente alvo (não executado nesta sessão)
+## Ambiente alvo
 
 | Componente | Versão alvo |
 | --- | --- |
@@ -9,7 +9,22 @@
 | LIB | 20251006 - 20250923_19220 |
 | TLPPCore | 01.06.01 |
 
-Esta tabela repete o ambiente registrado em [docs/experiments/openapi-core-model.md](openapi-core-model.md) porque este incremento estende o mesmo núcleo. **Diferente daquele marco, nenhuma compilação nem execução do PROBAT foi realizada nesta sessão** — o usuário optou explicitamente por não compilar em cada uma das oito tarefas de implementação. As versões acima descrevem o alvo pretendido, não um ambiente efetivamente exercitado.
+Esta tabela repete o ambiente registrado em [docs/experiments/openapi-core-model.md](openapi-core-model.md) porque este incremento estende o mesmo núcleo. A implementação original (T1–T9, commits de 2026-09-10) foi escrita sem compilar nem rodar o PROBAT — o usuário optou por não compilar a cada tarefa. **Em 2026-09-24, todos os 11 fontes da feature foram compilados no `P12_2510` e o fixture `OApiTst` rodou via `tlpp.probat.run` com sucesso (0 erros), seguido de verificação HTTP real dos endpoints de demonstração.** Ver "Sessão de validação em runtime (2026-09-24)" abaixo.
+
+## Sessão de validação em runtime (2026-09-24)
+
+Esta seção fecha a lacuna registrada em "Evolução TDD" e na tabela de rastreabilidade: compilação real e execução do PROBAT, adiadas desde a implementação original.
+
+1. **Compilação.** Os 11 fontes da feature (9 em `src/core/`, `tests/openapi-core/custom.openapi.core.test.tlpp`, `examples/openapi-core/custom.openapi.core.api.tlpp`, e os dois endpoints em `examples/openapi-parameters-schemas/`) foram compilados via `advpl-tlpp-compile` (tds-vscode) contra o servidor `P12_2510`, em dois lotes — todos com `[SUCCESS]`.
+2. **PROBAT.** `tlpp.probat.run` executou o fixture `OApiTst` até o fim sem `THREAD ERROR`, cobrindo as 145 asserções de T1 a T9 (o log de sucesso não emite um resumo `ok:`/`err:` explícito no console — apenas a ausência de `THREAD ERROR` — diferente das rodadas com falha, que sempre emitiram `>> assert << - result: ERROR | ok: N err: 1`). Duas iterações intermediárias pegaram fontes não compilados (`OApiSchema`, depois `OApiParam`) antes do lote completo.
+3. **HTTP real**, autenticado com o usuário `Admin` contra `http://localhost:8084/rest`:
+   - `GET /api/v1/hello/mundo?language=pt-br` → `200`, `{"message":"Hello mundo","language":"pt-br","status":"success"}`
+   - `POST /api/v1/hello {"name":"mundo"}` → `200`, `{"message":"Hello mundo","language":"TL++","status":"success"}` (default de `language` aplicado)
+   - `POST /api/v1/hello {}` → `400`, `{"message":"Payload inválido.","status":"error"}` (sem detalhes internos)
+   - `GET /api/v1/hello/mundo` sem credenciais → `401`
+   - `GET /api/v1/openapi/core` → `200`, documento com as duas operações e os três schemas reutilizáveis
+4. **Bug encontrado e corrigido durante a verificação HTTP:** o `GET` documentado em `GET /api/v1/openapi/core` declarava o parâmetro `name` como `"in":"path"`, mas estava registrado sob a chave de path `/api/v1/hello` — sem o placeholder `{name}` — porque `custom.openapi.core.api.tlpp` reaproveitava o mesmo `OApiPath("/api/v1/hello")` tanto para o `GET` (rota real `/api/v1/hello/:name`) quanto para o `POST` (rota real `/api/v1/hello`). Corrigido criando dois `OApiPath` distintos — `/api/v1/hello/{name}` para o `GET`, `/api/v1/hello` para o `POST` — e reverificado via nova chamada HTTP real ao endpoint recompilado. O endpoint REST em si (`custom.openapi.hello.get.tlpp`) sempre esteve correto; o bug era só na montagem manual da autodocumentação.
+5. **Efeito colateral do bug:** a fixture estática `tests/openapi-core/fixtures/hello-params.json` continha exatamente o mesmo padrão inconsistente (herdado de quando foi escrita à mão, T7). Corrigida para o mesmo formato de dois paths. Isso quebrou `scripts/validate-hello-openapi.ps1`, que assumia que o `GET` do "path hello" estaria sempre numa chave terminada literalmente em `/api/v1/hello` — o script nunca soube lidar com path templates (`{param}`), porque foi escrito antes de esta feature introduzir parâmetros de path. Generalizado para aceitar `.../hello` ou `.../hello/{param}` e localizar dinamicamente qual dos dois candidatos tem a operação `GET`, mantendo as mesmas checagens de conteúdo (`summary`/`description`/`responses.200.description`). Ambas as fixtures (`hello-core.json`, `hello-params.json`) revalidadas com sucesso após a mudança, junto com o restante da bateria de gates.
 
 ## Objetivo e resultado
 
@@ -37,7 +52,7 @@ O incremento é demonstrado por `GET /api/v1/hello/:name` (parâmetro de path e 
 
 ## Evolução TDD
 
-Todas as tarefas seguiram RED (teste escrito antes da implementação) → GREEN (implementação mínima) → conversão CP-1252 → contrato estático → regressões → commit. **Nenhuma delas foi confirmada por uma execução real do PROBAT**; "GREEN" aqui significa que a implementação foi escrita para satisfazer as asserções, não que elas foram executadas com sucesso no RPO.
+Todas as tarefas seguiram RED (teste escrito antes da implementação) → GREEN (implementação mínima) → conversão CP-1252 → contrato estático → regressões → commit. Na sessão original (2026-09-10), "GREEN" significava que a implementação foi escrita para satisfazer as asserções, sem execução real no RPO. Em 2026-09-24 essa lacuna foi fechada: o fixture completo rodou via PROBAT sem erros (ver "Sessão de validação em runtime" acima).
 
 | Tarefa | Entrega | Commit |
 | --- | --- | --- |
@@ -66,34 +81,34 @@ O fixture do núcleo (`tests/openapi-core/custom.openapi.core.test.tlpp`) cresce
 
 | Requisito | Fonte | Evidência disponível | Estado |
 | --- | --- | --- | --- |
-| PSCH-01 | `custom.openapi.schema.tlpp` | teste RED/GREEN: discriminante inválido falha com `UserException()` | Implementado — PROBAT não executado |
-| PSCH-02 | `custom.openapi.schema.tlpp` | teste: `addProp()` preserva nome/schema/obrigatoriedade | Implementado — PROBAT não executado |
-| PSCH-03 | `custom.openapi.schema.tlpp` | teste: `setItems()` exige schema | Implementado — PROBAT não executado |
-| PSCH-04 | `custom.openapi.schema.tlpp` | teste: `setRef()` valida nome `[A-Za-z0-9._-]` | Implementado — PROBAT não executado |
-| PSCH-05 | `custom.openapi.schema.tlpp`, `custom.openapi.document.tlpp` | testes: mutador incompatível, propriedade e componente duplicados falham antes da mutação | Implementado — PROBAT não executado |
-| PSCH-06 | `custom.openapi.parameter.tlpp` | teste: `cIn` aceita somente `path`/`query`/`header` | Implementado — PROBAT não executado |
-| PSCH-07 | `custom.openapi.parameter.tlpp`, `custom.openapi.operation.tlpp` | teste: `path` não obrigatório gera pendência acumulada | Implementado — PROBAT não executado |
-| PSCH-08 | `custom.openapi.operation.tlpp` | teste: `addParam()` rejeita `in`+nome duplicado (case sensível em path/query, insensível em header) | Implementado — PROBAT não executado |
-| PSCH-09 | `custom.openapi.operation.tlpp` | teste: `getParams()` preserva a ordem de inclusão | Implementado — PROBAT não executado |
-| PSCH-10 | `custom.openapi.body.tlpp`, `custom.openapi.operation.tlpp` | testes: construção e associação preservam descrição/obrigatoriedade/schema | Implementado — PROBAT não executado |
-| PSCH-11 | `custom.openapi.operation.tlpp` | teste: segunda chamada a `setBody()` falha sem substituir o original | Implementado — PROBAT não executado |
-| PSCH-12 | `custom.openapi.response.tlpp`, `custom.openapi.json.tlpp` | teste: `setSchema()` preservado; serialização em `content.application/json.schema` | Implementado — PROBAT não executado |
-| PSCH-13 | `custom.openapi.document.tlpp` | testes: referência inexistente em parâmetro, body, resposta e propriedade aninhada acumula pendência com contexto | Implementado — PROBAT não executado |
-| PSCH-14 | `custom.openapi.json.tlpp`, `tests/openapi-core/fixtures/hello-params.json` | teste estrutural via `JsonObject:FromJson()`; fixture validada pelo validador OpenAPI do projeto | Implementado — verificado estruturalmente; PROBAT não executado |
-| PSCH-15 | `custom.openapi.json.tlpp` | teste: documento com pendência não gera JSON parcial | Implementado — PROBAT não executado |
-| PSCH-16 | `examples/openapi-parameters-schemas/custom.openapi.hello.get.tlpp` | código revisado; símbolos `oRest` conferidos contra fontes padrão do Protheus | Implementado — não compilado nem executado via HTTP |
-| PSCH-17 | `examples/openapi-parameters-schemas/custom.openapi.hello.post.tlpp` | código revisado; lógica replica exatamente o contrato de `spec.md` | Implementado — não compilado nem executado via HTTP |
-| PSCH-18 | `examples/openapi-parameters-schemas/custom.openapi.hello.post.tlpp` | código revisado: `FromJson()` e `ValType()` cobrem malformado/ausente/vazio/não textual | Implementado — não compilado nem executado via HTTP |
-| PSCH-19 | `examples/openapi-core/custom.openapi.core.api.tlpp` | código revisado: registra os três schemas e as duas operações antes de serializar | Implementado — não compilado nem executado via HTTP |
-| PSCH-20 | segurança do AppServer, sem lógica no fonte | **sem evidência** — requer chamada HTTP real sem autenticação | **Pendente** — não verificável sem AppServer |
+| PSCH-01 | `custom.openapi.schema.tlpp` | teste RED/GREEN: discriminante inválido falha com `UserException()` | Implementado — confirmado via PROBAT (2026-09-24) |
+| PSCH-02 | `custom.openapi.schema.tlpp` | teste: `addProp()` preserva nome/schema/obrigatoriedade | Implementado — confirmado via PROBAT (2026-09-24) |
+| PSCH-03 | `custom.openapi.schema.tlpp` | teste: `setItems()` exige schema | Implementado — confirmado via PROBAT (2026-09-24) |
+| PSCH-04 | `custom.openapi.schema.tlpp` | teste: `setRef()` valida nome `[A-Za-z0-9._-]` | Implementado — confirmado via PROBAT (2026-09-24) |
+| PSCH-05 | `custom.openapi.schema.tlpp`, `custom.openapi.document.tlpp` | testes: mutador incompatível, propriedade e componente duplicados falham antes da mutação | Implementado — confirmado via PROBAT (2026-09-24) |
+| PSCH-06 | `custom.openapi.parameter.tlpp` | teste: `cIn` aceita somente `path`/`query`/`header` | Implementado — confirmado via PROBAT (2026-09-24) |
+| PSCH-07 | `custom.openapi.parameter.tlpp`, `custom.openapi.operation.tlpp` | teste: `path` não obrigatório gera pendência acumulada | Implementado — confirmado via PROBAT (2026-09-24) |
+| PSCH-08 | `custom.openapi.operation.tlpp` | teste: `addParam()` rejeita `in`+nome duplicado (case sensível em path/query, insensível em header) | Implementado — confirmado via PROBAT (2026-09-24) |
+| PSCH-09 | `custom.openapi.operation.tlpp` | teste: `getParams()` preserva a ordem de inclusão | Implementado — confirmado via PROBAT (2026-09-24) |
+| PSCH-10 | `custom.openapi.body.tlpp`, `custom.openapi.operation.tlpp` | testes: construção e associação preservam descrição/obrigatoriedade/schema | Implementado — confirmado via PROBAT (2026-09-24) |
+| PSCH-11 | `custom.openapi.operation.tlpp` | teste: segunda chamada a `setBody()` falha sem substituir o original | Implementado — confirmado via PROBAT (2026-09-24) |
+| PSCH-12 | `custom.openapi.response.tlpp`, `custom.openapi.json.tlpp` | teste: `setSchema()` preservado; serialização em `content.application/json.schema` | Implementado — confirmado via PROBAT (2026-09-24) |
+| PSCH-13 | `custom.openapi.document.tlpp` | testes: referência inexistente em parâmetro, body, resposta e propriedade aninhada acumula pendência com contexto | Implementado — confirmado via PROBAT (2026-09-24) |
+| PSCH-14 | `custom.openapi.json.tlpp`, `tests/openapi-core/fixtures/hello-params.json` | teste estrutural via `JsonObject:FromJson()`; fixture corrigida (path `{name}`) e validada pelo validador OpenAPI do projeto, já generalizado | Implementado — confirmado via PROBAT (2026-09-24) |
+| PSCH-15 | `custom.openapi.json.tlpp` | teste: documento com pendência não gera JSON parcial | Implementado — confirmado via PROBAT (2026-09-24) |
+| PSCH-16 | `examples/openapi-parameters-schemas/custom.openapi.hello.get.tlpp` | código revisado; símbolos `oRest` conferidos contra fontes padrão do Protheus | Implementado — confirmado via HTTP real (2026-09-24) |
+| PSCH-17 | `examples/openapi-parameters-schemas/custom.openapi.hello.post.tlpp` | código revisado; lógica replica exatamente o contrato de `spec.md` | Implementado — confirmado via HTTP real (2026-09-24) |
+| PSCH-18 | `examples/openapi-parameters-schemas/custom.openapi.hello.post.tlpp` | código revisado: `FromJson()` e `ValType()` cobrem malformado/ausente/vazio/não textual | Implementado — confirmado via HTTP real (2026-09-24) |
+| PSCH-19 | `examples/openapi-core/custom.openapi.core.api.tlpp` | código revisado: registra os três schemas e as duas operações antes de serializar | Implementado — confirmado via HTTP real (2026-09-24) |
+| PSCH-20 | segurança do AppServer, sem lógica no fonte | `GET /api/v1/hello/mundo` sem credenciais → `401` real, com `SECURITY=1` | **Confirmado via HTTP real (2026-09-24)** |
 
 ## Evidência HTTP
 
-**Nenhuma.** Diferente do marco `openapi-core-model` (que registrou HTTP `401`/`200` reais), esta sessão não compilou nenhum fonte nem chamou nenhum endpoint. PSCH-16 a PSCH-20 foram implementados e revisados contra os fontes padrão do Protheus, mas permanecem sem qualquer evidência de execução. A verificação HTTP completa (401 sem autenticação, 200 para GET/POST válidos, 400 para POST inválido, documento OpenAPI enriquecido) é o primeiro passo pendente antes de considerar este incremento validado.
+Registrada em 2026-09-24 contra `http://localhost:8084/rest`, usuário `Admin`. Ver "Sessão de validação em runtime" para os cinco resultados completos (401 sem auth, 200 GET, 200 POST válido, 400 POST inválido, documento OpenAPI enriquecido com o path `{name}` corrigido). PSCH-16 a PSCH-20 estão fechados com evidência de execução real, não apenas revisão de código.
 
 ## Gates reproduzíveis
 
-Executar a partir da raiz do repositório — todos aprovados nesta sessão:
+Executar a partir da raiz do repositório — todos aprovados (revalidados em 2026-09-24 após a correção do path `{name}`):
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File tests/openapi-core/validate-sources.ps1
@@ -106,14 +121,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests/hello-world/validate-s
 git diff --check
 ```
 
-Ainda pendente (requer AppServer conectado):
+Também concluído em 2026-09-24 (antes pendente por depender de AppServer conectado):
 
 ```text
-advpl-tlpp-compile sobre todos os fontes .tlpp desta feature
-Execução do fixture OApiTst via PROBAT
-curl sem autenticação em /api/v1/hello/:name → esperado 401
-curl autenticado em GET/POST /api/v1/hello → esperado 200/400 conforme o payload
-curl autenticado em GET /api/v1/openapi/core → documento enriquecido validado pelo script do projeto
+advpl-tlpp-compile sobre os 11 fontes .tlpp desta feature — todos [SUCCESS]
+Execução do fixture OApiTst via PROBAT — sem THREAD ERROR
+curl sem autenticação em /api/v1/hello/mundo → 401
+curl autenticado em GET/POST /api/v1/hello → 200/400 conforme o payload
+curl autenticado em GET /api/v1/openapi/core → documento enriquecido, validado pelo script do projeto após a correção do path {name}
 ```
 
 ## Segurança dos artefatos
@@ -126,9 +141,8 @@ curl autenticado em GET /api/v1/openapi/core → documento enriquecido validado 
 ## Limitações
 
 - Herdadas do núcleo: sem `servers`, `security schemes`, YAML, `enum`, `nullable`, `allOf`/`oneOf`/`anyOf`, múltiplos media types.
-- A montagem continua manual; a descoberta automática de annotations TL++ e a leitura de `WSRESTFUL` AdvPL permanecem planejadas como adaptadores futuros.
-- **Nada foi compilado ou executado em runtime nesta sessão.** Este é o maior risco residual do incremento: os símbolos usados nos endpoints (T8) foram validados por leitura contra código de produção real, mas nunca por uma compilação efetiva no `P12_2510`.
-- PSCH-20 (HTTP `401`) não pode ser considerado atendido sem uma verificação real contra o AppServer.
+- A montagem continua manual; a descoberta automática de annotations TL++ e a leitura de `WSRESTFUL` AdvPL permanecem planejadas como adaptadores futuros. É justamente essa montagem manual que permitiu o bug do path `{name}` (T8 registrou o `GET` no `OApiPath` errado) passar despercebido até a verificação HTTP real — uma descoberta automática a partir do `endpoint=` do `@Get()` teria evitado a divergência por construção.
+- `scripts/validate-hello-openapi.ps1` valida apenas os campos fixos (`summary`/`description`/`responses.200.description`) do "path hello"; não valida de forma genérica que todo parâmetro `in: path` tenha um `{...}` correspondente no template do path em qualquer outro endpoint do documento — a checagem de path templates que ele ganhou nesta sessão é específica do path `/api/v1/hello[/{param}]`, não uma regra geral do validador.
 
 ## Roteiro editorial
 
@@ -136,7 +150,7 @@ curl autenticado em GET /api/v1/openapi/core → documento enriquecido validado 
 2. **Duas armadilhas de encoding no Windows:** o conversor UTF8→CP1252 que corrompe um arquivo já convertido, e o PowerShell 5.1 que precisa de BOM para ler seus próprios scripts corretamente.
 3. **Quando confiar em uma skill genérica e quando desconfiar dela:** o caso `oRest:setStatusResponse()` vs. o padrão real encontrado nos fontes de produção do Protheus.
 4. **Resolução transitiva de referências sem acoplar o núcleo ao formato de saída:** como `OApiDoc` percorre parâmetros, body, respostas e propriedades aninhadas em busca de `$ref` quebrados.
-5. **O que falta para chamar isso de validado:** compilação, PROBAT e a bateria HTTP completa, incluindo o `401`.
+5. **O custo de montar o documento OpenAPI manualmente:** como um `OApiPath()` reaproveitado por engano para duas rotas diferentes só apareceu na primeira chamada HTTP real — invisível ao PROBAT, ao contrato estático e à leitura de código — e o que isso sugere sobre a prioridade da descoberta automática de rotas via `WSRESTFUL`/annotations.
 
 ## Referências internas
 

@@ -37,6 +37,7 @@ User Function OApiCore() as Logical
     Local oRespPost400   as Object
     Local oSchRefPost400 as Object
     Local oPathHello     as Object
+    Local oPathHelloName as Object
     Local jError as Json
     Local cResp := "" as Character
 
@@ -94,8 +95,11 @@ User Function OApiCore() as Logical
         oRespPost400:setSchema(oSchRefPost400)
         oPost:addResp(oRespPost400)
 
+        oPathHelloName := OApiPath():new("/api/v1/hello/{name}")
+        oPathHelloName:addOper(oGet)
+        oDoc:addPath(oPathHelloName)
+
         oPathHello := OApiPath():new("/api/v1/hello")
-        oPathHello:addOper(oGet)
         oPathHello:addOper(oPost)
         oDoc:addPath(oPathHello)
 

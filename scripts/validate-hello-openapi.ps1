@@ -199,19 +199,26 @@ function Read-JsonContract {
         throw "O documento não contém um objeto paths válido."
     }
 
-    $helloPaths = @($pathsProperty.Value.PSObject.Properties.Name | Where-Object { $_ -cmatch '/api/v1/hello$' })
-    if ($helloPaths.Count -ne 1) {
-        throw "Esperado exatamente um path terminado em /api/v1/hello; encontrado: $($helloPaths.Count)."
+    $helloPathCandidates = @($pathsProperty.Value.PSObject.Properties.Name | Where-Object { $_ -cmatch '/api/v1/hello$' -or $_ -cmatch '/api/v1/hello/\{[^/{}]+\}$' })
+    if ($helloPathCandidates.Count -eq 0) {
+        throw "Nenhum path terminado em /api/v1/hello ou /api/v1/hello/{param} foi encontrado."
     }
 
-    $helloPath = $helloPaths[0]
-    $pathItem = $pathsProperty.Value.PSObject.Properties[$helloPath].Value
-    $getProperty = Get-ExactProperty -Object $pathItem -Name "get"
-    if ($null -eq $getProperty -or $getProperty.Value -isnot [PSCustomObject]) {
-        throw "A operação GET não foi encontrada em $helloPath."
+    $helloGetMatches = @()
+    foreach ($candidate in $helloPathCandidates) {
+        $candidateItem = $pathsProperty.Value.PSObject.Properties[$candidate].Value
+        $candidateGet = Get-ExactProperty -Object $candidateItem -Name "get"
+        if ($null -ne $candidateGet -and $candidateGet.Value -is [PSCustomObject]) {
+            $helloGetMatches += [PSCustomObject]@{ Path = $candidate; Operation = $candidateGet.Value }
+        }
     }
 
-    $operation = $getProperty.Value
+    if ($helloGetMatches.Count -ne 1) {
+        throw "Esperada exatamente uma operação GET em um path /api/v1/hello ou /api/v1/hello/{param}; encontrada(s): $($helloGetMatches.Count)."
+    }
+
+    $helloPath = $helloGetMatches[0].Path
+    $operation = $helloGetMatches[0].Operation
     $titleProperty = Get-ExactProperty -Object $operation -Name "title"
     $summaryProperty = Get-ExactProperty -Object $operation -Name "summary"
     $titleProperties = @($titleProperty, $summaryProperty | Where-Object { $null -ne $_ })
@@ -298,16 +305,25 @@ function Read-YamlContract {
         throw "O YAML contém chaves de path duplicadas: $($duplicateDetails -join '; ')."
     }
 
-    $helloEntries = @($pathEntries | Where-Object { $_.Key -cmatch '/api/v1/hello$' })
-    if ($helloEntries.Count -ne 1) {
-        throw "Esperado exatamente um path terminado em /api/v1/hello; encontrado: $($helloEntries.Count)."
+    $helloPathCandidates = @($pathEntries | Where-Object { $_.Key -cmatch '/api/v1/hello$' -or $_.Key -cmatch '/api/v1/hello/\{[^/{}]+\}$' })
+    if ($helloPathCandidates.Count -eq 0) {
+        throw "Nenhum path terminado em /api/v1/hello ou /api/v1/hello/{param} foi encontrado."
     }
 
-    $helloEntry = $helloEntries[0]
-    $getEntry = Get-ExactYamlChild -Entries $entries -Parent $helloEntry -Name "get"
-    if ($null -eq $getEntry) {
-        throw "A operação GET não foi encontrada em $($helloEntry.Key)."
+    $helloGetMatches = @()
+    foreach ($candidate in $helloPathCandidates) {
+        $candidateGet = Get-ExactYamlChild -Entries $entries -Parent $candidate -Name "get"
+        if ($null -ne $candidateGet) {
+            $helloGetMatches += [PSCustomObject]@{ Entry = $candidate; Get = $candidateGet }
+        }
     }
+
+    if ($helloGetMatches.Count -ne 1) {
+        throw "Esperada exatamente uma operação GET em um path /api/v1/hello ou /api/v1/hello/{param}; encontrada(s): $($helloGetMatches.Count)."
+    }
+
+    $helloEntry = $helloGetMatches[0].Entry
+    $getEntry = $helloGetMatches[0].Get
 
     $titleEntry = Get-ExactYamlChild -Entries $entries -Parent $getEntry -Name "title"
     $summaryEntry = Get-ExactYamlChild -Entries $entries -Parent $getEntry -Name "summary"

@@ -2,9 +2,11 @@
 
 **Design:** `.specs/features/openapi-parameters-schemas/design.md`
 **Plano:** `docs/plans/2026-08-26-openapi-parameters-schemas.md`
-**Estado:** T1 a T9 implementadas; compilação, PROBAT e verificação HTTP real pendentes
+**Estado:** T1 a T9 implementadas; compilação, PROBAT e verificação HTTP real concluídos em 2026-09-24
 
-> **Nota de verificação (2026-09-10):** todas as tarefas foram implementadas seguindo RED/GREEN, com testes escritos e commitados a cada passo. O contrato estático (`validate-sources.ps1`), as fixtures OpenAPI e todas as regressões existentes passaram em todas as tarefas. **Nenhuma compilação real nem execução do PROBAT no `P12_2510` foi feita nesta sessão** (o usuário optou por não compilar em cada tarefa). Por isso, os itens "testes, encoding e compilação passam" abaixo devem ser lidos como: encoding Windows-1252 sem BOM confirmado, testes RED/GREEN escritos e estruturalmente coerentes, contrato estático aprovado — **compilação e execução real do PROBAT continuam pendentes** para todas as tarefas T1–T8. Detalhes em [docs/experiments/openapi-parameters-schemas.md](../../../docs/experiments/openapi-parameters-schemas.md).
+> **Nota de verificação (2026-09-10):** todas as tarefas foram implementadas seguindo RED/GREEN, com testes escritos e commitados a cada passo. O contrato estático (`validate-sources.ps1`), as fixtures OpenAPI e todas as regressões existentes passaram em todas as tarefas. Nenhuma compilação real nem execução do PROBAT no `P12_2510` foi feita nesta sessão (o usuário optou por não compilar em cada tarefa).
+>
+> **Atualização (2026-09-24):** os 11 fontes da feature foram compilados no `P12_2510` e o fixture `OApiTst` rodou via `tlpp.probat.run` sem erros. A verificação HTTP real dos endpoints de demonstração (T8) encontrou e corrigiu um bug de autodocumentação — o `GET /api/v1/hello/:name` estava registrado no documento OpenAPI sob o path `/api/v1/hello` (sem `{name}`) em vez de `/api/v1/hello/{name}` — e revelou o mesmo defeito latente na fixture estática `tests/openapi-core/fixtures/hello-params.json`, ambos corrigidos, junto com uma lacuna correspondente em `scripts/validate-hello-openapi.ps1` (não validava path templates). Compilação, PROBAT e a bateria HTTP completa (401/200/400) estão confirmados. Detalhes em [docs/experiments/openapi-parameters-schemas.md](../../../docs/experiments/openapi-parameters-schemas.md).
 
 ## Plano de execução
 

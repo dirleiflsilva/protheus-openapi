@@ -6,7 +6,7 @@
     "version": "1.0.0"
   },
   "paths": {
-    "/api/v1/hello": {
+    "/api/v1/hello/{name}": {
       "get": {
         "summary": "Hello World",
         "description": "Retorna uma mensagem Hello World gerada por um endpoint TL++.",
@@ -34,7 +34,9 @@
             }
           }
         }
-      },
+      }
+    },
+    "/api/v1/hello": {
       "post": {
         "summary": "Cria saudação",
         "description": "Cria uma nova saudação.",
