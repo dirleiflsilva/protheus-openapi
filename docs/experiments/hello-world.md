@@ -143,4 +143,6 @@ Não registrar credenciais, cabeçalhos de autorização nem configurações com
    powershell -NoProfile -ExecutionPolicy Bypass -File scripts/validate-hello-openapi.ps1 -Path examples/hello-world/snapshots/hello-openapi.json
    ```
 
+> **Nota (2026-09-24):** os `.ps1` acima foram removidos numa migração posterior para Python (mesma lógica e mensagens). Use os equivalentes `.py` com a mesma sintaxe de argumentos, trocando `-File script.ps1 -Nome valor` por `script.py --nome valor` (ex.: `python tests/hello-world/validate-sources.py --target hello`, `python scripts/normalize-openapi-paths.py --input ... --output ... --force`, `python scripts/validate-hello-openapi.py --path ...`, `python scripts/extract-hello-openapi.py --input ... --output ...`). Ver [docs/experiments/openapi-parameters-schemas.md](openapi-parameters-schemas.md) para o registro da migração.
+
 7. Abrir a documentação normalizada, localizar `GET /api/v1/hello` e registrar a versão, o path, a resposta documentada e eventuais limitações.

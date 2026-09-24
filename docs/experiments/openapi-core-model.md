@@ -117,6 +117,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tests/hello-world/validate-s
 git diff --check
 ```
 
+> **Nota (2026-09-24):** os comandos acima referenciam os scripts `.ps1` originais desta sessão, removidos numa migração posterior para Python (mesma lógica e mensagens). Para reproduzir estes gates hoje, use os equivalentes `.py` com a mesma sintaxe de argumentos: `python tests/openapi-core/validate-sources.py`, `python scripts/validate-hello-openapi.py --path ...`, `python tests/openapi-normalization/run-tests.py`, `python tests/hello-world/validate-sources.py --target ...`. Ver [docs/experiments/openapi-parameters-schemas.md](openapi-parameters-schemas.md) para o registro da migração.
+
 Na validação registrada para este marco, o normalizador manteve sua regressão com **15 testes aprovados de 15**. O contrato do núcleo também verifica includes, namespace, ProtheusDOC, encoding Windows-1252 sem BOM, APIs públicas e ausência de filesystem, credenciais, `tlpp.doc.generate()` e outras dependências proibidas.
 
 ## Segurança dos artefatos

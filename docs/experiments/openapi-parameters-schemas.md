@@ -108,18 +108,20 @@ Registrada em 2026-09-24 contra `http://localhost:8084/rest`, usuário `Admin`. 
 
 ## Gates reproduzíveis
 
-Executar a partir da raiz do repositório — todos aprovados (revalidados em 2026-09-24 após a correção do path `{name}`):
+Executar a partir da raiz do repositório — todos aprovados (revalidados em 2026-09-24 após a correção do path `{name}` e, na sequência, após a migração dos gates de PowerShell para Python):
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File tests/openapi-core/validate-sources.ps1
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/validate-hello-openapi.ps1 -Path tests/openapi-core/fixtures/hello-core.json
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/validate-hello-openapi.ps1 -Path tests/openapi-core/fixtures/hello-params.json
-powershell -NoProfile -ExecutionPolicy Bypass -File tests/openapi-normalization/run-tests.ps1
-powershell -NoProfile -ExecutionPolicy Bypass -File tests/hello-world/validate-sources.ps1 -Target hello
-powershell -NoProfile -ExecutionPolicy Bypass -File tests/hello-world/validate-sources.ps1 -Target export
-powershell -NoProfile -ExecutionPolicy Bypass -File tests/hello-world/validate-sources.ps1 -Target advpl
+```bash
+python tests/openapi-core/validate-sources.py
+python scripts/validate-hello-openapi.py --path tests/openapi-core/fixtures/hello-core.json
+python scripts/validate-hello-openapi.py --path tests/openapi-core/fixtures/hello-params.json
+python tests/openapi-normalization/run-tests.py
+python tests/hello-world/validate-sources.py --target hello
+python tests/hello-world/validate-sources.py --target export
+python tests/hello-world/validate-sources.py --target advpl
 git diff --check
 ```
+
+> Os gates eram PowerShell (`.ps1`) até esta sessão; foram reescritos em Python (mesma lógica e mensagens) por segurança de encoding — ver "Estratégia de testes" no README.
 
 Também concluído em 2026-09-24 (antes pendente por depender de AppServer conectado):
 

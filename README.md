@@ -80,7 +80,7 @@ O núcleo manual mínimo está concluído e validado como um recorte experimenta
 | Definição da visão e do roadmap | Concluído para o núcleo mínimo |
 | Provas de conceito em TL++ | Concluído |
 | Núcleo do modelo OpenAPI | Concluído |
-| Parâmetros, schemas e request body | Implementado — pendente de validação em runtime |
+| Parâmetros, schemas e request body | Implementado e validado (compilação, PROBAT e HTTP reais) |
 | Adaptador para descoberta de endpoints TL++ | Planejado |
 | Suporte a `WSRESTFUL` em AdvPL | Planejado |
 | Primeira versão experimental | Planejado |
@@ -89,15 +89,15 @@ O núcleo manual mínimo está concluído e validado como um recorte experimenta
 
 O primeiro vertical slice reúne seis classes no namespace `custom.openapi.core`: `OApiInfo`, `OApiResp`, `OApiOper`, `OApiPath`, `OApiDoc` e `OApiJson`. O exemplo `GET /api/v1/openapi/core` monta manualmente a documentação do Hello World, valida o modelo antes da saída e retorna JSON OpenAPI 3.0.3.
 
-A implementação possui testes TL++ executados pelo PROBAT, contratos estáticos em PowerShell e uma fixture JSON validada estruturalmente. O [diário técnico do núcleo](docs/experiments/openapi-core-model.md) reúne arquitetura, evidências TDD, rastreabilidade e comandos reproduzíveis.
+A implementação possui testes TL++ executados pelo PROBAT, contratos estáticos em Python e uma fixture JSON validada estruturalmente. O [diário técnico do núcleo](docs/experiments/openapi-core-model.md) reúne arquitetura, evidências TDD, rastreabilidade e comandos reproduzíveis.
 
 Este marco conclui a modelagem e a serialização manuais. Os adaptadores para descobrir annotations TL++ e serviços `WSRESTFUL` AdvPL continuam planejados e serão desenvolvidos separadamente.
 
-### Parâmetros e schemas — implementado, pendente de validação em runtime
+### Parâmetros e schemas — implementado e validado
 
 O incremento seguinte estende o núcleo com três classes novas (`OApiSchema`, `OApiParam`, `OApiBody`) e amplia `OApiOper`, `OApiResp`, `OApiDoc` e `OApiJson` para representar parâmetros `path`/`query`/`header`, request bodies, respostas com schema e `components/schemas` com resolução transitiva de referências `$ref`. Os exemplos `GET /api/v1/hello/:name` e `POST /api/v1/hello` demonstram o incremento, e `GET /api/v1/openapi/core` passa a publicar as duas operações e os três schemas reutilizáveis (`HelloRequest`, `HelloResponse`, `ErrorResponse`).
 
-Todo o código foi escrito seguindo TDD (RED/GREEN) e passa no contrato estático PowerShell e nas fixtures OpenAPI do projeto. **Diferente do núcleo mínimo, nenhuma compilação real nem execução do PROBAT foi realizada** — o incremento ainda não foi exercitado no AppServer nem por chamadas HTTP reais. O [diário técnico do incremento](docs/experiments/openapi-parameters-schemas.md) detalha a rastreabilidade completa, o que foi e não foi verificado, e os comandos pendentes para fechar a validação.
+Todo o código foi escrito seguindo TDD (RED/GREEN) e passa no contrato estático Python e nas fixtures OpenAPI do projeto. Os 11 fontes da feature foram compilados no `P12_2510`, o fixture `OApiTst` rodou via PROBAT sem erros, e os endpoints de demonstração foram verificados com chamadas HTTP reais (401 sem autenticação, 200/400 conforme o payload, documento OpenAPI enriquecido). O [diário técnico do incremento](docs/experiments/openapi-parameters-schemas.md) detalha a rastreabilidade completa e o bug de autodocumentação encontrado e corrigido durante essa verificação.
 
 ## Roadmap de aprendizado e desenvolvimento
 
@@ -209,6 +209,8 @@ A evolução deverá ser acompanhada por diferentes níveis de verificação:
 - testes de integração em um AppServer compatível;
 - comparação do resultado com endpoints reais de demonstração;
 - testes de regressão para construções AdvPL e TL++ já suportadas.
+
+Os scripts de gate do repositório (`scripts/*.py`, `tests/**/validate-sources.py`, `tests/openapi-normalization/run-tests.py`) são escritos em **Python** (originalmente eram PowerShell, migrados nesta sessão). A motivação é controlar o encoding de forma explícita: o fluxo de trabalho AdvPL/TL++ deste projeto é fortemente CP-1252, e o PowerShell 5.1 já causou bugs reais aqui — um `.ps1` sem BOM UTF-8 lendo acentos incorretamente do próprio script — justamente a classe de erro que `open(arquivo, encoding=...)` evita por ser explícito em vez de depender de heurísticas de codepage do sistema.
 
 ## Acompanhando a evolução
 
