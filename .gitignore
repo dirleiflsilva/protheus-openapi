@@ -15,6 +15,9 @@
 
 # Configuracoes locais do ambiente Protheus/TDS
 /.vscode/servers.json
+/.vscode/settings.json
+/.vscode/launch.json
+/.vscode/.advpl/
 /appserver.ini
 /dbaccess.ini
 /smartclient.ini
