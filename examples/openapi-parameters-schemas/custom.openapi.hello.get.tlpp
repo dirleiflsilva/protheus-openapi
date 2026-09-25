@@ -13,7 +13,8 @@
     endpoint="/api/v1/hello/:name",;
     title="Consulta saudação",;
     description="Retorna uma saudação personalizada usando o parâmetro de path name e o parâmetro opcional de query language.",;
-    responses='[{"statusCode":200,"description":"Saudação retornada com sucesso."}]';
+    responses='{"items":[{"statusCode":200,"description":"Saudação retornada com sucesso.","ref":"HelloResponse"}]}',;
+    params='{"items":[{"name":"language","in":"query","required":false,"type":"string","description":"Idioma da saudacao; default TL++."}]}';
 )
 User Function HeloGet() as Logical
 

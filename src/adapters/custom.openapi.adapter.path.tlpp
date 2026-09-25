@@ -1,0 +1,125 @@
+#include "tlpp-core.th"
+#include "totvs.ch"
+
+namespace custom.openapi.adapter.tlpp
+
+using namespace custom.openapi.core
+
+/*/{Protheus.doc} OApiAdpPath
+Converte o texto de um endpoint anotado (ex.: "/api/v1/hello/:name") para o template
+OpenAPI equivalente (ex.: "/api/v1/hello/{name}") e para os OApiParam de path
+correspondentes, na mesma ordem em que os segmentos aparecem no texto. O path do
+OApiPath resultante e sempre uma transformacao deterministica do texto do endpoint -
+nunca redigitado em outro lugar - o que elimina por construcao a classe de bug de path
+divergente encontrada na sessao anterior (ver docs/experiments/openapi-tlpp-adapter.md).
+@type class
+@author Dirlei Silva
+@since 2026-09-25
+/*/
+Class OApiAdpPath
+
+    Public Method new() Constructor
+    Public Method toTemplate(cEndpoint as Character) as Character
+    Public Method toParams(cEndpoint as Character) as Array
+
+EndClass
+
+/*/{Protheus.doc} OApiAdpPath::new() as Object
+Construtor sem estado - OApiAdpPath nao guarda nada entre chamadas.
+@type method
+@author Dirlei Silva
+@since 2026-09-25
+@return object, a propria instancia
+/*/
+Method new() Class OApiAdpPath
+Return Self
+
+/*/{Protheus.doc} OApiAdpPath::toTemplate(cEndpoint) as Character
+Converte cada segmento ":nome" do endpoint para "{nome}", preservando os demais
+segmentos exatamente como estao.
+@type method
+@author Dirlei Silva
+@since 2026-09-25
+@param cEndpoint, character, texto do atributo endpoint da annotation (ex.: "/api/v1/hello/:name")
+@return character, o mesmo path no formato de template OpenAPI (ex.: "/api/v1/hello/{name}")
+/*/
+Method toTemplate(cEndpoint as Character) as Character Class OApiAdpPath
+
+    Local aSegs   := {} as Array
+    Local cResult := "" as Character
+    Local cSeg    := "" as Character
+    Local nI      := 0 as Numeric
+
+    aSegs := PathSegs(cEndpoint)
+
+    For nI := 1 To Len(aSegs)
+        cSeg := aSegs[nI]
+
+        If Len(cSeg) > 0 .And. SubStr(cSeg, 1, 1) == ":"
+            cSeg := "{" + SubStr(cSeg, 2) + "}"
+        EndIf
+
+        If nI > 1
+            cResult += "/"
+        EndIf
+
+        cResult += cSeg
+    Next nI
+
+Return cResult
+
+/*/{Protheus.doc} OApiAdpPath::toParams(cEndpoint) as Array
+Extrai um OApiParam de path obrigatorio (schema string) para cada segmento ":nome" do
+endpoint, na ordem em que aparecem no texto.
+@type method
+@author Dirlei Silva
+@since 2026-09-25
+@param cEndpoint, character, texto do atributo endpoint da annotation
+@return array, um OApiParam por segmento de path encontrado, na ordem do texto
+/*/
+Method toParams(cEndpoint as Character) as Array Class OApiAdpPath
+
+    Local aSegs   := {} as Array
+    Local aParams := {} as Array
+    Local cSeg    := "" as Character
+    Local cName   := "" as Character
+    Local nI      := 0 as Numeric
+    Local oSchema as Object
+    Local oParam  as Object
+
+    aSegs := PathSegs(cEndpoint)
+
+    For nI := 1 To Len(aSegs)
+        cSeg := aSegs[nI]
+
+        If Len(cSeg) > 0 .And. SubStr(cSeg, 1, 1) == ":"
+            cName   := SubStr(cSeg, 2)
+            oSchema := OApiSchema():New("string")
+            oParam  := OApiParam():New(cName, "path", .T., oSchema, "")
+            AAdd(aParams, oParam)
+        EndIf
+    Next nI
+
+Return aParams
+
+Static Function PathSegs(cEndpoint as Character) as Array
+
+    Local aSegs  := {} as Array
+    Local cAtual := "" as Character
+    Local cChar  := "" as Character
+    Local nI     := 0 as Numeric
+
+    For nI := 1 To Len(cEndpoint)
+        cChar := SubStr(cEndpoint, nI, 1)
+
+        If cChar == "/"
+            AAdd(aSegs, cAtual)
+            cAtual := ""
+        Else
+            cAtual += cChar
+        EndIf
+    Next nI
+
+    AAdd(aSegs, cAtual)
+
+Return aSegs

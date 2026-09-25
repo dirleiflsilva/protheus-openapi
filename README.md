@@ -81,7 +81,7 @@ O núcleo manual mínimo está concluído e validado como um recorte experimenta
 | Provas de conceito em TL++ | Concluído |
 | Núcleo do modelo OpenAPI | Concluído |
 | Parâmetros, schemas e request body | Implementado e validado (compilação, PROBAT e HTTP reais) |
-| Adaptador para descoberta de endpoints TL++ | Planejado |
+| Adaptador para descoberta de endpoints TL++ | Implementado e validado (compilação e PROBAT reais) |
 | Suporte a `WSRESTFUL` em AdvPL | Planejado |
 | Primeira versão experimental | Planejado |
 
@@ -91,13 +91,19 @@ O primeiro vertical slice reúne seis classes no namespace `custom.openapi.core`
 
 A implementação possui testes TL++ executados pelo PROBAT, contratos estáticos em Python e uma fixture JSON validada estruturalmente. O [diário técnico do núcleo](docs/experiments/openapi-core-model.md) reúne arquitetura, evidências TDD, rastreabilidade e comandos reproduzíveis.
 
-Este marco conclui a modelagem e a serialização manuais. Os adaptadores para descobrir annotations TL++ e serviços `WSRESTFUL` AdvPL continuam planejados e serão desenvolvidos separadamente.
+Este marco conclui a modelagem e a serialização manuais. O adaptador para descobrir annotations TL++ automaticamente já está implementado e validado (ver seção abaixo); o adaptador para serviços `WSRESTFUL` AdvPL continua planejado e será desenvolvido separadamente (Fase 4).
 
 ### Parâmetros e schemas — implementado e validado
 
 O incremento seguinte estende o núcleo com três classes novas (`OApiSchema`, `OApiParam`, `OApiBody`) e amplia `OApiOper`, `OApiResp`, `OApiDoc` e `OApiJson` para representar parâmetros `path`/`query`/`header`, request bodies, respostas com schema e `components/schemas` com resolução transitiva de referências `$ref`. Os exemplos `GET /api/v1/hello/:name` e `POST /api/v1/hello` demonstram o incremento, e `GET /api/v1/openapi/core` passa a publicar as duas operações e os três schemas reutilizáveis (`HelloRequest`, `HelloResponse`, `ErrorResponse`).
 
 Todo o código foi escrito seguindo TDD (RED/GREEN) e passa no contrato estático Python e nas fixtures OpenAPI do projeto. Os 11 fontes da feature foram compilados no `P12_2510`, o fixture `OApiTst` rodou via PROBAT sem erros, e os endpoints de demonstração foram verificados com chamadas HTTP reais (401 sem autenticação, 200/400 conforme o payload, documento OpenAPI enriquecido). O [diário técnico do incremento](docs/experiments/openapi-parameters-schemas.md) detalha a rastreabilidade completa e o bug de autodocumentação encontrado e corrigido durante essa verificação.
+
+### Adaptador TL++ — implementado e validado
+
+A Fase 3 do roadmap elimina a montagem manual: quatro classes novas em `src/adapters/` (namespace `custom.openapi.adapter.tlpp`) descobrem endpoints TL++ anotados por introspecção real, em vez de exigir que cada path/operação seja redigitado à mão. `OApiAdpDsc` enumera funções anotadas com um verbo (`@Get`, `@Post`, ...) via `Reflection.getFunctionsByAnnotation()`/`getFunctionAnnotation()` — uma API confirmada por spike empírico (compilação e HTTP reais), não documentada com precisão suficiente no TDN. `OApiAdpPath` converte o texto do `endpoint` anotado (`:nome` → `{nome}`) e extrai os parâmetros de path. `OApiAdpMeta` converte os atributos complementares `params`/`requestBody`/`responses` (JSON serializado, formato definido por este incremento) em `OApiParam`/`OApiBody`/`OApiResp`. `OApiAdpBuild` monta o `OApiDoc` completo a partir dos três anteriores, reaproveitando 100% da API pública do núcleo sem alterá-lo.
+
+Como o `endpoint` anotado é a única fonte usada para gerar o path, a classe de bug encontrada na sessão anterior (path registrado sob uma chave diferente da rota real) fica estruturalmente impossível neste fluxo — não há mais um segundo lugar onde o path possa ser redigitado e divergir. O [diário técnico do incremento](docs/experiments/openapi-tlpp-adapter.md) documenta o spike de verificação da API de reflection (com evidência HTTP real), a rastreabilidade completa e as limitações de inferência conhecidas (reflection em métodos de classe, tipos de retorno, rotas dinâmicas).
 
 ## Roadmap de aprendizado e desenvolvimento
 

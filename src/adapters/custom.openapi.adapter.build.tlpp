@@ -1,0 +1,128 @@
+#include "tlpp-core.th"
+#include "totvs.ch"
+
+namespace custom.openapi.adapter.tlpp
+
+using namespace custom.openapi.core
+
+/*/{Protheus.doc} OApiAdpBuild
+Monta automaticamente os OApiPath/OApiOper/OApiParam/OApiBody de um OApiDoc a partir da
+introspeccao real (OApiAdpDsc, OApiAdpPath, OApiAdpMeta), sem nenhuma montagem manual
+paralela - fecha o ciclo completo da Fase 3. O OApiDoc recebido ja deve ter OApiInfo e os
+components/schemas reutilizaveis (ex.: HelloRequest, HelloResponse) registrados por quem
+chama build() - schemas nao sao descobertos por annotation neste incremento (permanecem fora
+do escopo da Fase 3, ver design.md). Path/verbo repetido continua sendo rejeitado pela
+validacao ja existente do nucleo (OApiPath::addOper / OApiDoc::addPath); build() so agrupa
+operacoes do mesmo path template ANTES de registra-lo no documento, porque OApiDoc::addPath()
+rejeita um path repetido mesmo que as operacoes sejam diferentes (GET e POST no mesmo path,
+por exemplo).
+@type class
+@author Dirlei Silva
+@since 2026-09-25
+/*/
+Class OApiAdpBuild
+
+    Public Method new() Constructor
+    Public Method build(oDoc as Object, aVerbs as Array, aSources as Array) as Object
+
+EndClass
+
+/*/{Protheus.doc} OApiAdpBuild::new() as Object
+Construtor sem estado - OApiAdpBuild nao guarda nada entre chamadas.
+@type method
+@author Dirlei Silva
+@since 2026-09-25
+@return object, a propria instancia
+/*/
+Method new() Class OApiAdpBuild
+Return Self
+
+/*/{Protheus.doc} OApiAdpBuild::build(oDoc, aVerbs, aSources) as Object
+Para cada verbo em aVerbs, descobre as funcoes anotadas (OApiAdpDsc) restritas a aSources,
+converte cada uma em OApiOper (com parametros de path via OApiAdpPath, query/body/responses
+via OApiAdpMeta), agrupa por template de path, e registra cada path agrupado uma unica vez em
+oDoc. Nao altera oDoc:getInfo() nem os components ja registrados.
+@type method
+@author Dirlei Silva
+@since 2026-09-25
+@param oDoc, object, OApiDoc alvo, ja com OApiInfo e components/schemas registrados
+@param aVerbs, array, verbos a descobrir (ex.: {"Get", "Post"})
+@param aSources, array, cSourceName alvo (maiusculas, com extensao)
+@return object, o proprio oDoc, com os paths descobertos registrados
+/*/
+Method build(oDoc as Object, aVerbs as Array, aSources as Array) as Object Class OApiAdpBuild
+
+    Local oDisc     := OApiAdpDsc():New() as Object
+    Local oPathP    := OApiAdpPath():New() as Object
+    Local oMeta     := OApiAdpMeta():New() as Object
+    Local aBuilt    := {} as Array
+    Local nV        := 0 as Numeric
+    Local nI        := 0 as Numeric
+    Local nP        := 0 as Numeric
+    Local cVerbo    := "" as Character
+    Local aAchados  := {} as Array
+    Local jItem     as Json
+    Local cTpl      := "" as Character
+    Local oOper     as Object
+    Local oPathObj  as Object
+    Local lAchou    := .F. as Logical
+    Local aParPath  := {} as Array
+    Local aParQuery := {} as Array
+    Local oBody     as Object
+    Local aResps    := {} as Array
+
+    For nV := 1 To Len(aVerbs)
+        cVerbo   := aVerbs[nV]
+        aAchados := oDisc:discover(cVerbo, aSources)
+
+        For nI := 1 To Len(aAchados)
+            jItem := aAchados[nI]
+            cTpl  := oPathP:toTemplate(jItem["endpoint"])
+
+            oOper := OApiOper():New(cVerbo, jItem["title"], jItem["description"])
+
+            aParPath := oPathP:toParams(jItem["endpoint"])
+            For nP := 1 To Len(aParPath)
+                oOper:addParam(aParPath[nP])
+            Next nP
+
+            aParQuery := oMeta:toQueryParams(jItem["params"])
+            For nP := 1 To Len(aParQuery)
+                oOper:addParam(aParQuery[nP])
+            Next nP
+
+            oBody := oMeta:toBody(jItem["requestBody"])
+            If oBody != Nil
+                oOper:setBody(oBody)
+            EndIf
+
+            aResps := oMeta:toResponses(jItem["responses"])
+            For nP := 1 To Len(aResps)
+                oOper:addResp(aResps[nP])
+            Next nP
+
+            lAchou   := .F.
+            oPathObj := Nil
+
+            For nP := 1 To Len(aBuilt)
+                If aBuilt[nP]:getPath() == cTpl
+                    oPathObj := aBuilt[nP]
+                    lAchou   := .T.
+                    Exit
+                EndIf
+            Next nP
+
+            If !lAchou
+                oPathObj := OApiPath():New(cTpl)
+                AAdd(aBuilt, oPathObj)
+            EndIf
+
+            oPathObj:addOper(oOper)
+        Next nI
+    Next nV
+
+    For nP := 1 To Len(aBuilt)
+        oDoc:addPath(aBuilt[nP])
+    Next nP
+
+Return oDoc

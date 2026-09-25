@@ -1,0 +1,183 @@
+#include "tlpp-core.th"
+#include "totvs.ch"
+
+namespace custom.openapi.adapter.tlpp
+
+using namespace custom.openapi.core
+
+/*/{Protheus.doc} OApiAdpMeta
+Converte os atributos textuais "params", "requestBody" e "responses" da annotation (todos
+strings JSON, vazias quando nao declaradas) para OApiParam de query/header, OApiBody e
+OApiResp, respectivamente. Formato definido por este incremento (Fase 3), documentado como a
+"annotation complementar" pedida pelo roadmap para schemas/parametros que o mecanismo de
+reflection nao expoe de forma estruturada. Os tres atributos sao sempre um objeto JSON no
+nivel raiz (nunca um array solto), porque o parsing via JsonObject():New():FromJson() so foi
+confirmado neste projeto para JSON top-level objeto: "params" e "responses" embrulham a lista
+real numa chave "items"; "requestBody" e um objeto {required, description, ref} direto; tanto
+"requestBody" quanto os itens de "responses" podem trazer "ref", nomeando um schema ja
+registrado no OApiDoc alvo. Path params NAO passam por aqui - vem de OApiAdpPath, a partir do
+proprio endpoint.
+@type class
+@author Dirlei Silva
+@since 2026-09-25
+/*/
+Class OApiAdpMeta
+
+    Public Method new() Constructor
+    Public Method toQueryParams(cParamsJson as Character) as Array
+    Public Method toBody(cBodyJson as Character) as Object
+    Public Method toResponses(cRespJson as Character) as Array
+
+EndClass
+
+/*/{Protheus.doc} OApiAdpMeta::new() as Object
+Construtor sem estado - OApiAdpMeta nao guarda nada entre chamadas.
+@type method
+@author Dirlei Silva
+@since 2026-09-25
+@return object, a propria instancia
+/*/
+Method new() Class OApiAdpMeta
+Return Self
+
+/*/{Protheus.doc} OApiAdpMeta::toQueryParams(cParamsJson) as Array
+Converte o atributo "params" (objeto JSON com a chave "items") em um OApiParam por item, com
+schema primitivo. Uma string vazia ou um JSON invalido devolvem um array vazio, sem lancar
+excecao.
+@type method
+@author Dirlei Silva
+@since 2026-09-25
+@param cParamsJson, character, texto do atributo params da annotation (pode ser vazio)
+@return array, um OApiParam por item declarado em "items", na ordem do JSON
+/*/
+Method toQueryParams(cParamsJson as Character) as Array Class OApiAdpMeta
+
+    Local aParams := {} as Array
+    Local jRoot   := JsonObject():New() as Json
+    Local aItens  := {} as Array
+    Local cParse  := "" as Character
+    Local nI      := 0 as Numeric
+    Local jItem   as Json
+    Local oSchema as Object
+    Local oParam  as Object
+    Local cIn     := "" as Character
+    Local lReq    := .F. as Logical
+    Local cDesc   := "" as Character
+
+    If !Empty(AllTrim(cParamsJson))
+        cParse := jRoot:FromJson(cParamsJson)
+
+        If Empty(cParse) .And. ValType(jRoot["items"]) == "A"
+            aItens := jRoot["items"]
+
+            For nI := 1 To Len(aItens)
+                jItem := aItens[nI]
+                cIn   := Lower(AllTrim(jItem["in"]))
+
+                lReq := .F.
+                If ValType(jItem["required"]) == "L"
+                    lReq := jItem["required"]
+                EndIf
+
+                cDesc := ""
+                If ValType(jItem["description"]) == "C"
+                    cDesc := jItem["description"]
+                EndIf
+
+                oSchema := OApiSchema():New(jItem["type"])
+                oParam  := OApiParam():New(jItem["name"], cIn, lReq, oSchema, cDesc)
+                AAdd(aParams, oParam)
+            Next nI
+        EndIf
+    EndIf
+
+Return aParams
+
+/*/{Protheus.doc} OApiAdpMeta::toBody(cBodyJson) as Object
+Converte o atributo "requestBody" (objeto JSON {required, description, ref}) em um OApiBody
+com schema "ref" apontando para um componente ja registrado no OApiDoc alvo. Uma string vazia
+ou um JSON invalido devolvem Nil, sem lancar excecao.
+@type method
+@author Dirlei Silva
+@since 2026-09-25
+@param cBodyJson, character, texto do atributo requestBody da annotation (pode ser vazio)
+@return object, OApiBody inicializado, ou Nil quando nao ha requestBody declarado
+/*/
+Method toBody(cBodyJson as Character) as Object Class OApiAdpMeta
+
+    Local jRoot   := JsonObject():New() as Json
+    Local cParse  := "" as Character
+    Local oSchema as Object
+    Local oBody   as Object
+    Local cDesc   := "" as Character
+    Local lReq    := .F. as Logical
+
+    If !Empty(AllTrim(cBodyJson))
+        cParse := jRoot:FromJson(cBodyJson)
+
+        If Empty(cParse) .And. ValType(jRoot["ref"]) == "C"
+            lReq := .F.
+            If ValType(jRoot["required"]) == "L"
+                lReq := jRoot["required"]
+            EndIf
+
+            cDesc := ""
+            If ValType(jRoot["description"]) == "C"
+                cDesc := jRoot["description"]
+            EndIf
+
+            oSchema := OApiSchema():New("ref")
+            oSchema:setRef(jRoot["ref"])
+
+            oBody := OApiBody():New(lReq, oSchema, cDesc)
+        EndIf
+    EndIf
+
+Return oBody
+
+/*/{Protheus.doc} OApiAdpMeta::toResponses(cRespJson) as Array
+Converte o atributo "responses" (objeto JSON com a chave "items") em um OApiResp por item,
+associando um schema "ref" quando o item declarar "ref". Uma string vazia ou um JSON invalido
+devolvem um array vazio, sem lancar excecao.
+@type method
+@author Dirlei Silva
+@since 2026-09-25
+@param cRespJson, character, texto do atributo responses da annotation (pode ser vazio)
+@return array, um OApiResp por item declarado em "items", na ordem do JSON
+/*/
+Method toResponses(cRespJson as Character) as Array Class OApiAdpMeta
+
+    Local aResps  := {} as Array
+    Local jRoot   := JsonObject():New() as Json
+    Local aItens  := {} as Array
+    Local cParse  := "" as Character
+    Local nI      := 0 as Numeric
+    Local jItem   as Json
+    Local cCode   := "" as Character
+    Local oResp   as Object
+    Local oSchema as Object
+
+    If !Empty(AllTrim(cRespJson))
+        cParse := jRoot:FromJson(cRespJson)
+
+        If Empty(cParse) .And. ValType(jRoot["items"]) == "A"
+            aItens := jRoot["items"]
+
+            For nI := 1 To Len(aItens)
+                jItem := aItens[nI]
+                cCode := AllTrim(Str(jItem["statusCode"], 5, 0))
+
+                oResp := OApiResp():New(cCode, jItem["description"])
+
+                If ValType(jItem["ref"]) == "C" .And. !Empty(jItem["ref"])
+                    oSchema := OApiSchema():New("ref")
+                    oSchema:setRef(jItem["ref"])
+                    oResp:setSchema(oSchema)
+                EndIf
+
+                AAdd(aResps, oResp)
+            Next nI
+        EndIf
+    EndIf
+
+Return aResps

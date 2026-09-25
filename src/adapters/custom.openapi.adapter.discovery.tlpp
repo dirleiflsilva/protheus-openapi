@@ -1,0 +1,73 @@
+#include "tlpp-core.th"
+#include "totvs.ch"
+
+namespace custom.openapi.adapter.tlpp
+
+/*/{Protheus.doc} OApiAdpDsc
+Descobre funcoes TL++ anotadas com um verbo HTTP (Get/Post/Put/Patch/Delete) via
+Reflection.getFunctionsByAnnotation()/getFunctionAnnotation(), restrito a um conjunto de
+fontes-alvo, e devolve os metadados brutos da annotation (endpoint/title/description/
+responses/params/requestBody) sem montar nenhuma instancia OApi* do nucleo - a montagem
+fica para uma camada posterior do adaptador. Mecanismo confirmado por spike em 2026-09-25
+(ver docs/experiments/openapi-tlpp-adapter.md).
+@type class
+@author Dirlei Silva
+@since 2026-09-25
+/*/
+Class OApiAdpDsc
+
+    Public Method new() Constructor
+    Public Method discover(cVerb as Character, aSources as Array) as Array
+
+EndClass
+
+/*/{Protheus.doc} OApiAdpDsc::new() as Object
+Construtor sem estado - OApiAdpDsc nao guarda nada entre chamadas de discover().
+@type method
+@author Dirlei Silva
+@since 2026-09-25
+@return object, a propria instancia
+/*/
+Method new() Class OApiAdpDsc
+Return Self
+
+/*/{Protheus.doc} OApiAdpDsc::discover(cVerb, aSources) as Array
+Enumera, via Reflection.getFunctionsByAnnotation(cVerb), todas as funcoes do RPO anotadas
+com o verbo informado, filtra pelo cSourceName presente em aSources (maiusculas, com
+extensao, ex.: "CUSTOM.OPENAPI.HELLO.GET.TLPP"), e para cada par [cSourceName,
+cFunctionName] filtrado le a annotation completa via Reflection.getFunctionAnnotation().
+Funcoes fora de aSources, ou fontes-alvo sem nenhuma funcao anotada com o verbo informado,
+sao ignoradas silenciosamente - a descoberta das demais nunca e interrompida.
+@type method
+@author Dirlei Silva
+@since 2026-09-25
+@param cVerb, character, nome do verbo tal como declarado na annotation (ex.: "Get", "Post")
+@param aSources, array, lista de cSourceName alvo (maiusculas, com extensao)
+@return array, um item por funcao encontrada; cada item e um Json com cSourceName,
+cFunctionName e os campos brutos da annotation (endpoint, title, description, responses,
+params, requestBody)
+/*/
+Method discover(cVerb as Character, aSources as Array) as Array Class OApiAdpDsc
+
+    Local aFound := {} as Array
+    Local aTodas := {} as Array
+    Local nI     := 0 as Numeric
+    Local cSrc   := "" as Character
+    Local cFunc  := "" as Character
+    Local jAnot  as Json
+
+    aTodas := Reflection.getFunctionsByAnnotation(cVerb)
+
+    For nI := 1 To Len(aTodas)
+        cSrc  := aTodas[nI][1]
+        cFunc := aTodas[nI][2]
+
+        If AScan(aSources, {|cAlvo| cAlvo == cSrc}) > 0
+            jAnot := Reflection.getFunctionAnnotation(cSrc, cFunc, cVerb)
+            jAnot["cSourceName"]   := cSrc
+            jAnot["cFunctionName"] := cFunc
+            AAdd(aFound, jAnot)
+        EndIf
+    Next nI
+
+Return aFound

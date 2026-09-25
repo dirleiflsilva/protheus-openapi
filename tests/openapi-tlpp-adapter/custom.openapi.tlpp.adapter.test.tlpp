@@ -1,0 +1,228 @@
+#include "tlpp-core.th"
+#include "tlpp-probat.th"
+#include "totvs.ch"
+
+namespace custom.openapi.adapter.tlpp.test
+
+using namespace tlpp.probat
+using namespace custom.openapi.adapter.tlpp
+using namespace custom.openapi.core
+
+/*/{Protheus.doc}
+    Valida OApiAdpDsc::discover() contra os dois endpoints reais de demonstracao
+    (examples/openapi-parameters-schemas/custom.openapi.hello.get.tlpp e .post.tlpp), ja
+    anotados e validados via HTTP real em incremento anterior. Este fixture depende dos dois
+    fontes estarem compilados no mesmo RPO do ambiente de execucao - nao e um teste unitario
+    isolado, ja que Reflection.getFunctionsByAnnotation() enumera o RPO compilado, nao o
+    codigo-fonte em disco.
+
+    @type function
+    @author Dirlei Silva
+    @since 2026-09-25
+    @return logical, Resultado dos testes de descoberta do adaptador TL++
+*/
+@TestFixture()
+User Function OApiAdpTst() as Logical
+
+    Local oDisc     as Object
+    Local oPath     as Object
+    Local oMeta     as Object
+    Local oBody     as Object
+    Local aAlvos    := {} as Array
+    Local aGet      := {} as Array
+    Local aPost     := {} as Array
+    Local aNenhum   := {} as Array
+    Local aSemVerbo := {} as Array
+    Local aParams   := {} as Array
+    Local aSemParam := {} as Array
+    Local cTpl      := "" as Character
+    Local cTplSemP  := "" as Character
+    Local oInfo     as Object
+    Local oFullDoc  as Object
+    Local oBuild    as Object
+    Local oSchReq   as Object
+    Local oSchResp  as Object
+    Local oSchErr   as Object
+    Local aVerbos   := {} as Array
+    Local aFullPaths := {} as Array
+    Local oPGet     as Object
+    Local oPPost    as Object
+    Local nI        := 0 as Numeric
+    Local aPend     := {} as Array
+    Local aOpersGet as Array
+    Local aRespGet  as Array
+    Local lErro     := .F. as Logical
+
+    aAlvos := {"CUSTOM.OPENAPI.HELLO.GET.TLPP", "CUSTOM.OPENAPI.HELLO.POST.TLPP"}
+
+    oDisc := OApiAdpDsc():New()
+
+    // Descoberta do GET: deve localizar exatamente HeloGet, ignorando HeloPost (verbo diferente).
+    aGet := oDisc:discover("Get", aAlvos)
+
+    assertEquals(1, Len(aGet), "A descoberta de Get deve localizar exatamente uma funcao entre os alvos.")
+
+    If Len(aGet) == 1
+        assertEquals("CUSTOM.OPENAPI.HELLO.GET.TLPP", aGet[1]["cSourceName"], "O cSourceName deve ser preservado exatamente como retornado pela Reflection.")
+        assertEquals("U_HELOGET", aGet[1]["cFunctionName"], "O cFunctionName deve preservar o prefixo interno U_ do RPO.")
+        assertEquals("/api/v1/hello/:name", aGet[1]["endpoint"], "O endpoint deve ser o texto exato declarado na annotation @Get.")
+        assertEquals("Consulta saudação", aGet[1]["title"], "O title deve ser preservado exatamente como declarado na annotation.")
+    EndIf
+
+    // Descoberta do POST: deve localizar exatamente HeloPost, ignorando HeloGet (verbo diferente).
+    aPost := oDisc:discover("Post", aAlvos)
+
+    assertEquals(1, Len(aPost), "A descoberta de Post deve localizar exatamente uma funcao entre os alvos.")
+
+    If Len(aPost) == 1
+        assertEquals("CUSTOM.OPENAPI.HELLO.POST.TLPP", aPost[1]["cSourceName"], "O cSourceName deve ser preservado exatamente como retornado pela Reflection.")
+        assertEquals("U_HELOPOST", aPost[1]["cFunctionName"], "O cFunctionName deve preservar o prefixo interno U_ do RPO.")
+        assertEquals("/api/v1/hello", aPost[1]["endpoint"], "O endpoint deve ser o texto exato declarado na annotation @Post.")
+    EndIf
+
+    // Fonte fora da lista de alvos: nao deve aparecer no resultado, mesmo estando anotada com @Get em algum lugar do RPO.
+    aNenhum := oDisc:discover("Get", {"UM.FONTE.INEXISTENTE.TLPP"})
+
+    assertEquals(0, Len(aNenhum), "Uma lista de alvos sem correspondencia no RPO deve devolver um array vazio, sem erro.")
+
+    // Verbo sem correspondencia entre os alvos: HeloGet nao tem @Delete: a descoberta deve ficar vazia, sem interromper nada.
+    aSemVerbo := oDisc:discover("Delete", aAlvos)
+
+    assertEquals(0, Len(aSemVerbo), "Um verbo sem nenhuma funcao correspondente entre os alvos deve devolver um array vazio, sem erro.")
+
+    // OApiAdpPath: o endpoint real descoberto (nunca redigitado) vira o template OpenAPI e os OApiParam de path.
+    oPath := OApiAdpPath():New()
+
+    If Len(aGet) == 1
+        cTpl := oPath:toTemplate(aGet[1]["endpoint"])
+        assertEquals("/api/v1/hello/{name}", cTpl, "O template OpenAPI deve vir exatamente do endpoint descoberto, com :nome convertido para {nome}.")
+
+        aParams := oPath:toParams(aGet[1]["endpoint"])
+        assertEquals(1, Len(aParams), "Deve existir exatamente um OApiParam de path para :name.")
+
+        If Len(aParams) == 1
+            assertEquals("name", aParams[1]:getName(), "O nome do parametro de path deve ser preservado sem os dois-pontos.")
+            assertEquals("path", aParams[1]:getIn(), "A localizacao do parametro deve ser path.")
+            assertEquals(.T., aParams[1]:getReq(), "Todo parametro de path deve ser obrigatorio.")
+            assertEquals("string", aParams[1]:getSchema():getKind(), "O schema do parametro de path deve ser string.")
+        EndIf
+    EndIf
+
+    // Endpoint sem segmento de path (POST): template inalterado e nenhum OApiParam gerado.
+    If Len(aPost) == 1
+        cTplSemP := oPath:toTemplate(aPost[1]["endpoint"])
+        assertEquals("/api/v1/hello", cTplSemP, "Um endpoint sem :nome deve permanecer inalterado no template.")
+
+        aSemParam := oPath:toParams(aPost[1]["endpoint"])
+        assertEquals(0, Len(aSemParam), "Um endpoint sem :nome nao deve gerar nenhum OApiParam de path.")
+    EndIf
+
+    // OApiAdpMeta: params/requestBody reais descobertos (nunca redigitados) viram OApiParam de query e OApiBody.
+    oMeta := OApiAdpMeta():New()
+
+    If Len(aGet) == 1
+        aParams := oMeta:toQueryParams(aGet[1]["params"])
+        assertEquals(1, Len(aParams), "O atributo params de HeloGet deve gerar exatamente um OApiParam de query.")
+
+        If Len(aParams) == 1
+            assertEquals("language", aParams[1]:getName(), "O nome do parametro de query deve ser preservado.")
+            assertEquals("query", aParams[1]:getIn(), "A localizacao do parametro deve ser query.")
+            assertEquals(.F., aParams[1]:getReq(), "O parametro language nao e obrigatorio.")
+            assertEquals("string", aParams[1]:getSchema():getKind(), "O schema do parametro de query deve ser string.")
+        EndIf
+    EndIf
+
+    If Len(aPost) == 1
+        oBody := oMeta:toBody(aPost[1]["requestBody"])
+        assertEquals(.F., oBody == Nil, "O atributo requestBody de HeloPost deve gerar um OApiBody.")
+
+        If oBody != Nil
+            assertEquals(.T., oBody:getReq(), "O requestBody de HeloPost deve ser obrigatorio.")
+            assertEquals("ref", oBody:getSchema():getKind(), "O schema do requestBody deve ser uma referencia.")
+            assertEquals("HelloRequest", oBody:getSchema():getRef(), "O requestBody deve referenciar o componente HelloRequest.")
+        EndIf
+    EndIf
+
+    // Casos vazios: string sem conteudo nao deve gerar parametro nem body, e nao deve lancar excecao.
+    assertEquals(0, Len(oMeta:toQueryParams("")), "Um params vazio nao deve gerar nenhum OApiParam.")
+    assertEquals(.T., oMeta:toBody("") == Nil, "Um requestBody vazio nao deve gerar OApiBody.")
+
+    // OApiAdpBuild: monta o OApiDoc inteiro a partir da introspeccao real dos dois exemplos-alvo.
+    oInfo    := OApiInfo():New("Hello World API", "API de demonstracao do adaptador TL++.", "1.0.0")
+    oFullDoc := OApiDoc():New(oInfo)
+
+    oSchReq := OApiSchema():New("object")
+    oSchReq:addProp("name", OApiSchema():New("string"), .T.)
+    oSchReq:addProp("language", OApiSchema():New("string"), .F.)
+    oFullDoc:addSchema("HelloRequest", oSchReq)
+
+    oSchResp := OApiSchema():New("object")
+    oSchResp:addProp("message", OApiSchema():New("string"), .T.)
+    oSchResp:addProp("language", OApiSchema():New("string"), .T.)
+    oSchResp:addProp("status", OApiSchema():New("string"), .T.)
+    oFullDoc:addSchema("HelloResponse", oSchResp)
+
+    oSchErr := OApiSchema():New("object")
+    oSchErr:addProp("message", OApiSchema():New("string"), .T.)
+    oSchErr:addProp("status", OApiSchema():New("string"), .T.)
+    oFullDoc:addSchema("ErrorResponse", oSchErr)
+
+    aVerbos := {"Get", "Post"}
+    oBuild  := OApiAdpBuild():New()
+    oBuild:build(oFullDoc, aVerbos, aAlvos)
+
+    aFullPaths := oFullDoc:getPaths()
+    assertEquals(2, Len(aFullPaths), "O documento montado automaticamente deve ter exatamente 2 paths (GET e POST tem endpoints diferentes).")
+
+    For nI := 1 To Len(aFullPaths)
+        If aFullPaths[nI]:getPath() == "/api/v1/hello/{name}"
+            oPGet := aFullPaths[nI]
+        ElseIf aFullPaths[nI]:getPath() == "/api/v1/hello"
+            oPPost := aFullPaths[nI]
+        EndIf
+    Next nI
+
+    assertEquals(.F., oPGet == Nil, "O path /api/v1/hello/{name} deve ter sido registrado.")
+    assertEquals(.F., oPPost == Nil, "O path /api/v1/hello deve ter sido registrado.")
+
+    If oPGet != Nil
+        aOpersGet := oPGet:getOpers()
+        assertEquals(1, Len(aOpersGet), "O path do GET deve ter exatamente uma operacao.")
+
+        If Len(aOpersGet) == 1
+            assertEquals("get", aOpersGet[1]:getMethod(), "A operacao deve ser GET.")
+            assertEquals(2, Len(aOpersGet[1]:getParams()), "O GET deve ter 2 parametros: name (path) e language (query).")
+
+            aRespGet := aOpersGet[1]:getResps()
+            assertEquals(1, Len(aRespGet), "O GET deve ter exatamente uma resposta (200).")
+
+            If Len(aRespGet) == 1
+                assertEquals("200", aRespGet[1]:getCode(), "O codigo da resposta do GET deve ser 200.")
+                assertEquals("HelloResponse", aRespGet[1]:getSchema():getRef(), "A resposta 200 do GET deve referenciar HelloResponse.")
+            EndIf
+        EndIf
+    EndIf
+
+    If oPPost != Nil
+        assertEquals(1, Len(oPPost:getOpers()), "O path do POST deve ter exatamente uma operacao.")
+
+        If Len(oPPost:getOpers()) == 1
+            assertEquals("post", oPPost:getOpers()[1]:getMethod(), "A operacao deve ser POST.")
+            assertEquals(.F., oPPost:getOpers()[1]:getBody() == Nil, "O POST deve ter um requestBody.")
+            assertEquals(2, Len(oPPost:getOpers()[1]:getResps()), "O POST deve ter exatamente duas respostas (200 e 400).")
+        EndIf
+    EndIf
+
+    aPend := oFullDoc:validate()
+    assertEquals(0, Len(aPend), "O documento montado automaticamente nao deve ter nenhuma pendencia.")
+
+    // Registrar o mesmo path duas vezes deve continuar sendo rejeitado pela validacao ja existente do nucleo.
+    lErro := .F.
+    Try
+        oBuild:build(oFullDoc, aVerbos, aAlvos)
+    Catch oException
+        lErro := .T.
+    EndTry
+    assertEquals(.T., lErro, "Registrar os mesmos paths uma segunda vez deve ser rejeitado (path duplicado no documento).")
+
+Return .T.

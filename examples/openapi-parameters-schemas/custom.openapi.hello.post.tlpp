@@ -13,7 +13,8 @@
     endpoint="/api/v1/hello",;
     title="Cria saudação",;
     description="Cria uma nova saudação a partir de um HelloRequest.",;
-    responses='[{"statusCode":200,"description":"Saudação criada com sucesso."},{"statusCode":400,"description":"Payload inválido."}]';
+    responses='{"items":[{"statusCode":200,"description":"Saudação criada com sucesso.","ref":"HelloResponse"},{"statusCode":400,"description":"Payload inválido.","ref":"ErrorResponse"}]}',;
+    requestBody='{"required":true,"description":"Corpo da requisicao de saudacao.","ref":"HelloRequest"}';
 )
 User Function HeloPost() as Logical
 

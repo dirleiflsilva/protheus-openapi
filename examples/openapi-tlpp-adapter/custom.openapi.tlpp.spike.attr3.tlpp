@@ -1,0 +1,72 @@
+#include "tlpp-core.th"
+#include "tlpp-rest.th"
+#include "totvs.ch"
+
+/*/{Protheus.doc}
+Spike: tenta ler a annotation @Get de HeloGet assumindo uma assinatura de 3 argumentos
+(cSourceName, cFuncName, cAnnotationName), por analogia direta com
+Reflection.getDataAnnotation(oObj, cAttributeName, cAnnotationName) confirmado em codigo real,
+substituindo o objeto por um identificador de fonte/programa. Como nao ha confirmacao de qual
+valor cSourceName deveria assumir, duas hipoteses sao testadas separadamente.
+@type function
+@author Dirlei Silva
+@since 2026-09-25
+@return logical, Resultado do envio da resposta REST
+*/
+@Get(;
+    endpoint="/api/v1/openapi/spike/attr3",;
+    title="Spike Reflection - assinatura de 3 argumentos",;
+    description="Tenta getFunctionAnnotation(cSourceName, cFuncName, cAnnotationName) com duas hipoteses de cSourceName.";
+)
+User Function TlaSpkAt3() as Logical
+
+    Local jResp := JsonObject():New() as Json
+    Local aExp  := {} as Array
+    Local jExp  := JsonObject():New() as Json
+    Local cResp := "" as Character
+    Local lOk   := .F. as Logical
+    Local cErro := "" as Character
+    Local jAnot := JsonObject():New() as Json
+
+    Try
+        jAnot := Reflection.getFunctionAnnotation("custom.openapi.hello.get", "HeloGet", "Get")
+        lOk := .T.
+    Catch oException
+        lOk := .F.
+        cErro := oException:description
+    EndTry
+
+    jExp := JsonObject():New()
+    jExp["experiment"] := "Reflection.getFunctionAnnotation('custom.openapi.hello.get', 'HeloGet', 'Get')"
+    jExp["success"]    := lOk
+    If !lOk
+        jExp["error"] := cErro
+    EndIf
+    AAdd(aExp, jExp)
+
+    lOk   := .F.
+    cErro := ""
+
+    Try
+        jAnot := Reflection.getFunctionAnnotation("HeloGet", "HeloGet", "Get")
+        lOk := .T.
+    Catch oException
+        lOk := .F.
+        cErro := oException:description
+    EndTry
+
+    jExp := JsonObject():New()
+    jExp["experiment"] := "Reflection.getFunctionAnnotation('HeloGet', 'HeloGet', 'Get')"
+    jExp["success"]    := lOk
+    If !lOk
+        jExp["error"] := cErro
+    EndIf
+    AAdd(aExp, jExp)
+
+    jResp["experiments"] := aExp
+    cResp := jResp:ToJson()
+
+    oRest:SetStatusCode(200)
+    oRest:SetKeyHeaderResponse("Content-Type", "application/json")
+
+Return oRest:SetResponse(cResp)
