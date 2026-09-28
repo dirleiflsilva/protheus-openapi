@@ -1,0 +1,159 @@
+#include "tlpp-core.th"
+#include "tlpp-rest.th"
+#include "totvs.ch"
+
+/*/{Protheus.doc}
+Spike T1-A: confirma que MemoRead() le o conteudo de um arquivo .prw no AppServer e que
+um split manual por Chr(10) (via At()/SubStr(), ja confirmados) localiza a linha WSRESTFUL.
+O arquivo-alvo e o exemplo-alvo da Fase 4: examples/openapi-advpl-adapter/hello-advpl.prw.
+CONFIRMADO EM EXECUCAO REAL (2026-09-28): esta funcao roda como job HTTP (sem interface
+remota) - nesse contexto, funcoes de arquivo como MemoRead() so enxergam caminhos RELATIVOS
+ao RootPath do ambiente (aqui, D:\TOTVS12\Protheus12_2510\protheus_data), sem letra de drive.
+Um caminho absoluto tipo "d:/pasta/arquivo.prw" e interpretado como "estacao do SmartClient",
+que nao existe em contexto de job, e MemoRead() retorna string vazia silenciosamente (sem
+erro). O arquivo-alvo precisa estar copiado para dentro do RootPath; o path informado no
+endpoint (query param cFile) e relativo a esse RootPath (ex.: "/openapi-advpl-adapter/hello-advpl.prw").
+MLCount()/MemoLine() ABANDONADAS nesta tarefa: testadas em execucao real com varios
+parametros (nLinLen=0, nLinLen=32000, texto normalizado para CRLF) e MLCount() sempre
+retornou 0, mesmo com texto confirmadamente nao vazio e com CRLF real (textLen cresceu na
+medida exata esperada apos a normalizacao, confirmando que o texto estava correto). Causa
+exata nao identificada e considerada fora de escopo: o parser real (Ramo A, ver
+custom.openapi.advpl.spike.parse.tlpp) opera sobre o texto inteiro via Regex(), sem
+precisar iterar linha a linha - por isso este spike troca a abordagem para um split manual
+por Chr(10), que e suficiente para o objetivo real (localizar a linha WSRESTFUL para fins de
+pendencia/diagnostico) e nao depende dessas funcoes legadas de comportamento obscuro. Uma
+chamada isolada a MLCount(cText) e mantida so como registro diagnostico, sem bloquear o
+resultado.
+Evidencia esperada: jResp["success"] = true, jResp["lineCount"] > 0,
+jResp["firstLine"] com o conteudo da primeira linha, jResp["wsrestfulLine"] com a linha
+exata que contem "WSRESTFUL", jResp["wsrestfulLineNum"] com o numero dessa linha.
+@type function
+@author Dirlei Silva
+@since 2026-09-26
+@return logical, Resultado do envio da resposta REST
+/*/
+@Get(;
+    endpoint="/api/v1/openapi/advpl/spike/read",;
+    title="Spike AdvPL T1-A - MemoRead e split manual por linha",;
+    description="Confirma leitura de arquivo .prw via MemoRead e localizacao de linha via split manual por Chr(10).",;
+    params='{"items":[{"name":"cFile","in":"query","required":true,"type":"string","description":"Caminho do arquivo .prw RELATIVO ao RootPath do ambiente (sem letra de drive) - funcoes de arquivo em contexto de job nao enxergam caminho absoluto"}]}';
+)
+User Function TlaSpkRd() as Logical
+
+    Local cFile         := "" as Character
+    Local cText         := "" as Character
+    Local cRemaining    := "" as Character
+    Local nPos          := 0  as Numeric
+    Local nLines        := 0  as Numeric
+    Local nI            := 0  as Numeric
+    Local cLine         := "" as Character
+    Local cLineUp       := "" as Character
+    Local nWsrLine      := 0  as Numeric
+    Local cWsrLine      := "" as Character
+    Local jQuery        := Nil as Json
+    Local jResp         := JsonObject():New() as Json
+    Local cResp         := "" as Character
+    Local cErro         := "" as Character
+    Local lOk           := .F. as Logical
+    Local aLinhas       := {} as Array
+    Local aSample       := {} as Array
+
+    // -- 1. ler parametro de query (API real: GetQueryRequest() devolve Json,
+    // nao existe um metodo getQueryParam(nome) - confirmado em
+    // examples/openapi-parameters-schemas/custom.openapi.hello.get.tlpp)
+    jQuery := oRest:GetQueryRequest()
+    If jQuery != Nil .And. ValType(jQuery["cFile"]) == "C"
+        cFile := jQuery["cFile"]
+    EndIf
+    If Empty(cFile)
+        jResp["success"] := .F.
+        jResp["error"]   := "Parametro cFile ausente"
+        oRest:SetStatusCode(400)
+        oRest:SetKeyHeaderResponse("Content-Type", "application/json")
+        Return oRest:SetResponse(jResp:ToJson())
+    EndIf
+
+    // -- 2. ler arquivo com MemoRead
+    Try
+        cText := MemoRead(cFile, .F.)   // .F. = nao alterar case do caminho
+        lOk := .T.
+    Catch oException
+        lOk   := .F.
+        cErro := oException:description
+    EndTry
+
+    If !lOk .Or. Empty(cText)
+        jResp["success"]   := .F.
+        jResp["error"]     := If(!lOk, cErro, "MemoRead retornou string vazia - arquivo nao encontrado ou vazio")
+        jResp["filePath"]  := cFile
+        oRest:SetStatusCode(200)
+        oRest:SetKeyHeaderResponse("Content-Type", "application/json")
+        Return oRest:SetResponse(jResp:ToJson())
+    EndIf
+
+    // -- 3. registro diagnostico isolado de MLCount() - nao usado para a logica real
+    jResp["mlCountDiagnostic"] := MLCount(cText)
+
+    // -- 4. split manual por Chr(10) via At()/SubStr() (ja confirmados). Tolera CR
+    // opcional antes do LF (arquivos CRLF ou LF puro funcionam igual).
+    cRemaining := cText
+    nPos := At(Chr(10), cRemaining)
+    Do While nPos > 0
+        cLine := Left(cRemaining, nPos - 1)
+        If Right(cLine, 1) == Chr(13)
+            cLine := Left(cLine, Len(cLine) - 1)
+        EndIf
+        AAdd(aLinhas, cLine)
+        cRemaining := SubStr(cRemaining, nPos + 1)
+        nPos := At(Chr(10), cRemaining)
+    EndDo
+    If !Empty(cRemaining)
+        AAdd(aLinhas, cRemaining)
+    EndIf
+    nLines := Len(aLinhas)
+
+    jResp["success"]   := .T.
+    jResp["filePath"]  := cFile
+    jResp["textLen"]   := Len(cText)
+    jResp["lineCount"] := nLines
+
+    // -- 5. primeira linha
+    If nLines > 0
+        jResp["firstLine"] := AllTrim(aLinhas[1])
+    EndIf
+
+    // -- 6. varrer linhas procurando a DECLARACAO real de WSRESTFUL. So checar o
+    // prefixo "WSRESTFUL" nao basta - o comentario de documentacao do arquivo tem uma
+    // linha de prosa que comeca com essa mesma palavra por coincidencia de quebra
+    // ("WSRESTFUL com WSDATA, dois metodos..."), gerando falso positivo (confirmado em
+    // execucao real). Exigir "DESCRIPTION" na mesma linha distingue a declaracao real.
+    For nI := 1 To nLines
+        cLine   := aLinhas[nI]
+        cLineUp := Upper(AllTrim(cLine))
+        If Left(cLineUp, 9) == "WSRESTFUL" .And. At("DESCRIPTION", cLineUp) > 0
+            nWsrLine := nI
+            cWsrLine := cLine
+            Exit
+        EndIf
+    Next nI
+
+    If nWsrLine > 0
+        jResp["wsrestfulLineNum"] := nWsrLine
+        jResp["wsrestfulLine"]    := cWsrLine
+    Else
+        jResp["wsrestfulLineNum"] := 0
+        jResp["wsrestfulLine"]    := ""
+        jResp["warn"]             := "Nenhuma linha WSRESTFUL encontrada no arquivo"
+    EndIf
+
+    // -- 7. amostra das primeiras 5 linhas para inspecao visual
+    For nI := 1 To Min(5, nLines)
+        AAdd(aSample, aLinhas[nI])
+    Next nI
+    jResp["sample5Lines"] := aSample
+
+    cResp := jResp:ToJson()
+    oRest:SetStatusCode(200)
+    oRest:SetKeyHeaderResponse("Content-Type", "application/json")
+
+Return oRest:SetResponse(cResp)

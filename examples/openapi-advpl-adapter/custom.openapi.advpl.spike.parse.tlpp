@@ -1,0 +1,246 @@
+#include "tlpp-core.th"
+#include "tlpp-rest.th"
+#include "totvs.ch"
+
+/*/{Protheus.doc}
+Spike T1-A (Ramo A): confirma o comportamento real da classe Regex (namespace tlpp.regex)
+para tokenizar o bloco WSRESTFUL de um arquivo .prw, em vez de At()/SubStr() manuais
+(Ramo B, descartado - ver design.md, secao "Ramo A confirmado por evidencia real").
+A API da classe Regex foi confirmada em uso real de producao na arvore padrao P12.1.2510
+(TAFA633.tlpp, TAFA615.tlpp, backoffice.pgc.utils.repository.tlpp, agd-repository.utils.tlpp):
+  oRegex := Regex():New("")            // ou New(cPattern) direto
+  oRegex:SetMultiline(.T.)
+  oRegex:SetCaseSensitive(.F.)
+  oRegex:SetPattern(cPattern)          // pode ser chamado de novo no mesmo objeto
+  lFound := oRegex:Tokenizer(cTexto, , @aSaida)
+  oRegex:ReplaceAll(@cVar, cSubstituto)
+O formato exato do array preenchido por Tokenizer() (posicoes numericas vs substrings
+capturadas pelos grupos do padrao) NAO esta confirmado pelas fontes inspecionadas - este
+spike testa isso empiricamente contra o bloco WSRESTFUL do exemplo-alvo e despeja o
+resultado bruto (tipo Harbour + valor de cada elemento) para inspecao.
+Arquivo-alvo: examples/openapi-advpl-adapter/hello-advpl.prw (copiado para dentro do
+RootPath do ambiente - ver nota abaixo).
+CONFIRMADO EM EXECUCAO REAL (2026-09-28): esta funcao roda como job HTTP (sem interface
+remota) - nesse contexto, MemoRead() so enxerga caminhos RELATIVOS ao RootPath do ambiente
+(sem letra de drive); um caminho absoluto e interpretado como "estacao do SmartClient" e
+retorna string vazia silenciosamente. O arquivo-alvo precisa estar copiado para dentro do
+RootPath; o path informado no endpoint (query param cFile) e relativo a esse RootPath
+(ex.: "/openapi-advpl-adapter/hello-advpl.prw").
+Evidencia esperada (minima): jResp["success"] = true, jResp["testService"]["matched"] = true
+(CONFIRMADO: Tokenizer() devolve posicoes numericas, nao substrings capturadas - ver
+design.md). jResp["testMatchesValue"]["called"] = true se Matches() existir de fato; o campo
+"result" mostra o tipo/valor real devolvido, para decidir se Matches() e o caminho certo
+para extrair o texto capturado pelos grupos.
+@type function
+@author Dirlei Silva
+@since 2026-09-28
+@return logical, Resultado do envio da resposta REST
+/*/
+Using Namespace tlpp.regex
+@Get(;
+    endpoint="/api/v1/openapi/advpl/spike/parse",;
+    title="Spike AdvPL T1-A - tokenizacao WSRESTFUL com a classe Regex",;
+    description="Confirma empiricamente o comportamento de Regex():Tokenizer()/SetPattern() sobre o bloco WSRESTFUL.",;
+    params='{"items":[{"name":"cFile","in":"query","required":true,"type":"string","description":"Caminho do arquivo .prw RELATIVO ao RootPath do ambiente (sem letra de drive) - funcoes de arquivo em contexto de job nao enxergam caminho absoluto"}]}';
+)
+User Function TlaSpkPrs() as Logical
+
+    Local cFile      := "" as Character
+    Local cText      := "" as Character
+    Local cJoined    := "" as Character
+    Local nStart     := 0  as Numeric
+    Local nEndKw     := 0  as Numeric
+    Local cBlock     := "" as Character
+    Local oRegex     := Nil as Object
+    Local jQuery     := Nil as Json
+    Local jResp      := JsonObject():New() as Json
+    Local jDump      := Nil as Json
+    Local cResp      := "" as Character
+
+    // -- 1. ler parametro e arquivo (API real: GetQueryRequest() devolve Json,
+    // nao existe um metodo getQueryParam(nome) - confirmado em
+    // examples/openapi-parameters-schemas/custom.openapi.hello.get.tlpp)
+    jQuery := oRest:GetQueryRequest()
+    If jQuery != Nil .And. ValType(jQuery["cFile"]) == "C"
+        cFile := jQuery["cFile"]
+    EndIf
+    If Empty(cFile)
+        jResp["success"] := .F.
+        jResp["error"]   := "Parametro cFile ausente"
+        oRest:SetStatusCode(400)
+        oRest:SetKeyHeaderResponse("Content-Type", "application/json")
+        Return oRest:SetResponse(jResp:ToJson())
+    EndIf
+
+    cText := MemoRead(cFile, .F.)
+    If Empty(cText)
+        jResp["success"]  := .F.
+        jResp["error"]    := "MemoRead retornou string vazia - arquivo nao encontrado"
+        jResp["filePath"] := cFile
+        oRest:SetStatusCode(200)
+        oRest:SetKeyHeaderResponse("Content-Type", "application/json")
+        Return oRest:SetResponse(jResp:ToJson())
+    EndIf
+
+    // -- 2. colapsar continuacoes ";" de fim de linha fisica em um espaco, para
+    // permitir que um padrao simples case uma clausula que se espalha por varias
+    // linhas fisicas (ex.: WSMETHOD ...; DESCRIPTION ...; PATH ...;)
+    cJoined := StrTran(cText, ";" + Chr(13) + Chr(10), " ")
+    cJoined := StrTran(cJoined, ";" + Chr(10), " ")
+
+    // -- 3. isolar o bloco WSRESTFUL...END WSRESTFUL (delimitacao grosseira via At(),
+    // apenas para restringir o texto de teste - a extracao fina usa Regex)
+    nStart := At("WSRESTFUL ", Upper(cJoined))
+    nEndKw := At("END WSRESTFUL", Upper(cJoined))
+    If nEndKw == 0
+        nEndKw := At("ENDWSRESTFUL", Upper(cJoined))
+    EndIf
+    If nStart == 0 .Or. nEndKw == 0 .Or. nEndKw <= nStart
+        jResp["success"] := .F.
+        jResp["error"]   := "Bloco WSRESTFUL nao localizado apos colapsar continuacoes"
+        oRest:SetStatusCode(200)
+        oRest:SetKeyHeaderResponse("Content-Type", "application/json")
+        Return oRest:SetResponse(jResp:ToJson())
+    EndIf
+    cBlock := SubStr(cJoined, nStart, nEndKw - nStart)
+
+    jResp["success"]     := .T.
+    jResp["filePath"]    := cFile
+    jResp["blockSample"] := cBlock
+
+    // -- 4. teste A: cabecalho do servico - WSRESTFUL <nome> DESCRIPTION "<texto>"
+    oRegex := Regex():New("")
+    oRegex:SetMultiline(.T.)
+    oRegex:SetCaseSensitive(.F.)
+    oRegex:SetPattern('WSRESTFUL[[:space:]]+([[:alnum:]_]+)[[:space:]]+DESCRIPTION[[:space:]]+"([^"]*)"')
+    jDump := DumpTokenizer(oRegex, cBlock)
+    jResp["testService"] := jDump
+
+    // -- 4b. teste A2: mesmo padrao (2 grupos de captura), mas via Matches() em vez de
+    // Tokenizer() - Tokenizer() confirmou devolver so posicoes (teste anterior), nao o
+    // texto capturado; Matches() existe no objeto (confirmado por Try/Catch numa versao
+    // anterior deste spike) e pode ser o metodo certo para obter o texto dos grupos.
+    // Aqui capturamos e despejamos o VALOR REAL de retorno (nao so se lanca excecao).
+    jResp["testMatchesValue"] := DumpMatches(oRegex, cBlock)
+
+    // -- 5. teste B: WSDATA <nome> AS <tipo> [OPTIONAL]
+    oRegex:SetPattern('WSDATA[[:space:]]+([[:alnum:]_]+)[[:space:]]+AS[[:space:]]+([[:alnum:]_]+)([[:space:]]+OPTIONAL)?')
+    jDump := DumpTokenizer(oRegex, cBlock)
+    jResp["testWsData"] := jDump
+
+    // -- 6. teste C: WSMETHOD <verbo> <acao>
+    oRegex:SetPattern('WSMETHOD[[:space:]]+(GET|POST|PUT|PATCH|DELETE)[[:space:]]+([[:alnum:]_]*)')
+    jDump := DumpTokenizer(oRegex, cBlock)
+    jResp["testMethodVerb"] := jDump
+
+    // -- 7. teste D: PATH "<valor>" (espaco obrigatorio apos PATH evita casar PATHPARAM,
+    // que nao tem espaco entre PATH e PARAM)
+    oRegex:SetPattern('PATH[[:space:]]+"([^"]*)"')
+    jDump := DumpTokenizer(oRegex, cBlock)
+    jResp["testPath"] := jDump
+
+    FWFreeObj(oRegex)
+
+    cResp := jResp:ToJson()
+    oRest:SetStatusCode(200)
+    oRest:SetKeyHeaderResponse("Content-Type", "application/json")
+
+Return oRest:SetResponse(cResp)
+
+// -----------------------------------------------------------------------
+// DumpTokenizer: executa oRegex:Tokenizer(cTexto,, @aOut) e devolve um Json com
+// o resultado bruto (booleano + tipo/valor de cada elemento do array de saida)
+// para inspecionar empiricamente o formato devolvido (posicoes numericas vs
+// substrings capturadas pelos grupos do padrao).
+// -----------------------------------------------------------------------
+Static Function DumpTokenizer(oRegex as Object, cTexto as Character) as Json
+
+    Local lFound  := .F.  as Logical
+    Local aOut    := {}   as Array
+    Local jRes    := JsonObject():New() as Json
+    Local aItens  := {}   as Array
+    Local nI      := 0    as Numeric
+    Local jItem   := Nil  as Json
+    Local xVal
+
+    lFound := oRegex:Tokenizer(cTexto, , @aOut)
+
+    jRes["matched"]   := lFound
+    jRes["itemCount"] := Len(aOut)
+
+    For nI := 1 To Len(aOut)
+        xVal  := aOut[nI]
+        jItem := JsonObject():New()
+        jItem["index"] := nI
+        jItem["type"]  := ValType(xVal)
+        If ValType(xVal) $ "CNL"
+            jItem["value"] := xVal
+        Else
+            jItem["value"] := cValToChar(xVal)
+        EndIf
+        AAdd(aItens, jItem)
+    Next nI
+    jRes["items"] := aItens
+
+Return jRes
+
+// -----------------------------------------------------------------------
+// DumpMatches: chama oRegex:Matches(cTexto) via Try/Catch e devolve um Json
+// com o valor de retorno REAL (nao so se a chamada lanca excecao) - usa
+// DumpValue() para inspecionar tipo/estrutura de forma generica, ja que o
+// tipo de retorno de Matches() nao e confirmado por nenhuma fonte inspecionada.
+// -----------------------------------------------------------------------
+Static Function DumpMatches(oRegex as Object, cTexto as Character) as Json
+
+    Local jRes    := JsonObject():New() as Json
+    Local lOk     := .F. as Logical
+    Local cErro   := "" as Character
+    Local xRet
+
+    Try
+        xRet := oRegex:Matches(cTexto)
+        lOk  := .T.
+    Catch oException
+        lOk   := .F.
+        cErro := oException:description
+    EndTry
+
+    jRes["called"] := lOk
+    If lOk
+        jRes["result"] := DumpValue(xRet)
+    Else
+        jRes["error"] := cErro
+    EndIf
+
+Return jRes
+
+// -----------------------------------------------------------------------
+// DumpValue: inspeciona um valor de tipo desconhecido (ValType) e devolve um
+// Json descrevendo tipo + valor. Para Array, recursa em cada elemento (um
+// nivel de profundidade e suficiente para os retornos esperados aqui).
+// -----------------------------------------------------------------------
+Static Function DumpValue(xVal) as Json
+
+    Local jV     := JsonObject():New() as Json
+    Local cType  := ValType(xVal) as Character
+    Local aItens := {} as Array
+    Local nI     := 0  as Numeric
+
+    jV["type"] := cType
+
+    Do Case
+    Case cType $ "CNL"
+        jV["value"] := xVal
+    Case cType == "A"
+        jV["length"] := Len(xVal)
+        For nI := 1 To Len(xVal)
+            AAdd(aItens, DumpValue(xVal[nI]))
+        Next nI
+        jV["items"] := aItens
+    Case cType == "U"
+        jV["value"] := "NIL"
+    Otherwise
+        jV["value"] := cValToChar(xVal)
+    EndCase
+
+Return jV
