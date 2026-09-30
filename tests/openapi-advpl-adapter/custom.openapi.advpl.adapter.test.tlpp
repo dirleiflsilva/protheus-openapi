@@ -1,0 +1,141 @@
+#include "tlpp-core.th"
+#include "tlpp-probat.th"
+#include "totvs.ch"
+
+namespace custom.openapi.adapter.advpl.test
+
+using namespace tlpp.probat
+using namespace custom.openapi.adapter.advpl
+
+/*/{Protheus.doc}
+    Valida OApiWsrParser::parse() (T2 do roadmap Fase 4): reconhecimento do bloco de definicao
+    WSRESTFUL ... END WSRESTFUL, extracao de WSDATA e as pendencias registradas para DESCRIPTION
+    com constante simbolica e WSDATA de tipo nao suportado. O caso do exemplo-alvo real depende
+    de examples/openapi-advpl-adapter/hello-advpl.prw estar copiado para dentro do RootPath do
+    ambiente (ver design.md, "Restricao de plataforma: RootPath") - mesma copia ja usada pelo
+    spike T1. Os demais casos usam texto embutido escrito em arquivos temporarios sob o mesmo
+    diretorio, ja que OApiWsrParser::parse() so aceita um caminho de arquivo (nao recebe texto
+    diretamente).
+    @type function
+    @author Dirlei Silva
+    @since 2026-09-30
+    @return logical, Resultado dos testes do parser do adaptador AdvPL
+*/
+@TestFixture()
+User Function OApiWsrTst() as Logical
+
+    Local oParser     as Object
+    Local cDir        := "/openapi-advpl-adapter/" as Character
+    Local aServ       := {} as Array
+    Local cVazio      := "" as Character
+    Local cConst      := "" as Character
+    Local cArray      := "" as Character
+    Local cContUnica  := "" as Character
+    Local cContQuebra := "" as Character
+    Local aSemBloco   := {} as Array
+    Local aComConst   := {} as Array
+    Local aComArray   := {} as Array
+    Local aContUnica  := {} as Array
+    Local aContQuebra := {} as Array
+
+    oParser := OApiWsrParser():New()
+
+    // Exemplo-alvo real: hello-advpl.prw, um servico com um WSDATA (language) e sem pendencias.
+    aServ := oParser:parse(cDir + "hello-advpl.prw")
+
+    assertEquals(1, Len(aServ), "hello-advpl.prw deve produzir exatamente um servico WSRESTFUL.")
+
+    If Len(aServ) == 1
+        assertEquals("HelloAdvpl", aServ[1]["service"], "O nome do servico deve ser extraido exatamente como declarado.")
+        assertEquals("Hello World AdvPL com parametros", aServ[1]["desc"], "A DESCRIPTION literal deve ser extraida sem as aspas.")
+        assertEquals(1, Len(aServ[1]["wsdata"]), "hello-advpl.prw declara exatamente um WSDATA.")
+
+        If Len(aServ[1]["wsdata"]) == 1
+            assertEquals("language", aServ[1]["wsdata"][1]["name"], "O nome do WSDATA deve ser preservado.")
+            assertEquals("string", aServ[1]["wsdata"][1]["type"], "WSDATA AS STRING deve virar schema string.")
+            assertEquals(.T., aServ[1]["wsdata"][1]["optional"], "WSDATA ... OPTIONAL deve ser reconhecido.")
+        EndIf
+
+        assertEquals(0, Len(aServ[1]["methods"]), "Nesta tarefa (T2) methods deve ser sempre vazio.")
+        assertEquals(0, Len(aServ[1]["pending"]), "hello-advpl.prw nao deve gerar nenhuma pendencia.")
+    EndIf
+
+    // Arquivo sem nenhum bloco WSRESTFUL: deve devolver array vazio, sem falhar.
+    cVazio := "// Fonte sem nenhum bloco WSRESTFUL" + Chr(10) + "Local x := 1"
+    MemoWrite(cDir + "_test-sem-bloco.prw", cVazio)
+    aSemBloco := oParser:parse(cDir + "_test-sem-bloco.prw")
+
+    assertEquals(0, Len(aSemBloco), "Um arquivo sem bloco WSRESTFUL deve devolver um array vazio, sem lancar excecao.")
+
+    // DESCRIPTION com constante simbolica: desc = "" + pendencia com o nome da constante.
+    cConst := 'WSRESTFUL TstConst DESCRIPTION STR0001' + Chr(10) + ;
+              '    WSDATA foo AS STRING' + Chr(10) + ;
+              'END WSRESTFUL'
+    MemoWrite(cDir + "_test-const.prw", cConst)
+    aComConst := oParser:parse(cDir + "_test-const.prw")
+
+    assertEquals(1, Len(aComConst), "O bloco com DESCRIPTION por constante ainda deve ser reconhecido como um servico.")
+
+    If Len(aComConst) == 1
+        assertEquals("", aComConst[1]["desc"], "DESCRIPTION por constante simbolica deve resultar em desc vazio.")
+        assertEquals(1, Len(aComConst[1]["pending"]), "DESCRIPTION por constante simbolica deve gerar exatamente uma pendencia.")
+
+        If Len(aComConst[1]["pending"]) == 1
+            assertEquals(.T., At("STR0001", aComConst[1]["pending"][1]["msg"]) > 0, "A pendencia deve citar o nome da constante nao resolvida.")
+        EndIf
+    EndIf
+
+    // WSDATA de tipo nao suportado (ARRAY): type = "string" + pendencia de tipo nao suportado.
+    cArray := 'WSRESTFUL TstArr DESCRIPTION "Teste array"' + Chr(10) + ;
+              '    WSDATA items AS ARRAY' + Chr(10) + ;
+              'END WSRESTFUL'
+    MemoWrite(cDir + "_test-array.prw", cArray)
+    aComArray := oParser:parse(cDir + "_test-array.prw")
+
+    assertEquals(1, Len(aComArray), "O bloco com WSDATA ARRAY ainda deve ser reconhecido como um servico.")
+
+    If Len(aComArray) == 1
+        assertEquals(1, Len(aComArray[1]["wsdata"]), "O bloco declara exatamente um WSDATA.")
+
+        If Len(aComArray[1]["wsdata"]) == 1
+            assertEquals("string", aComArray[1]["wsdata"][1]["type"], "WSDATA AS ARRAY deve cair no schema string (tipo nao suportado diretamente).")
+        EndIf
+
+        assertEquals(1, Len(aComArray[1]["pending"]), "WSDATA AS ARRAY deve gerar exatamente uma pendencia de tipo nao suportado.")
+    EndIf
+
+    // Continuacao ";": a versao com "DESCRIPTION ...;" quebrada em duas linhas fisicas deve
+    // produzir exatamente o mesmo resultado que a versao equivalente em uma linica so.
+    cContUnica := 'WSRESTFUL TstCont DESCRIPTION "Teste continuacao"' + Chr(10) + ;
+                  '    WSDATA foo AS STRING' + Chr(10) + ;
+                  'END WSRESTFUL'
+    MemoWrite(cDir + "_test-cont-unica.prw", cContUnica)
+    aContUnica := oParser:parse(cDir + "_test-cont-unica.prw")
+
+    cContQuebra := 'WSRESTFUL TstCont DESCRIPTION "Teste continuacao";' + Chr(10) + ;
+                   '    WSDATA foo AS STRING' + Chr(10) + ;
+                   'END WSRESTFUL'
+    MemoWrite(cDir + "_test-cont-quebra.prw", cContQuebra)
+    aContQuebra := oParser:parse(cDir + "_test-cont-quebra.prw")
+
+    assertEquals(1, Len(aContUnica), "A versao de linha unica deve produzir exatamente um servico (referencia de comparacao).")
+    assertEquals(1, Len(aContQuebra), "A versao com continuacao ';' deve produzir exatamente um servico.")
+
+    If Len(aContUnica) == 1 .And. Len(aContQuebra) == 1
+        assertEquals(aContUnica[1]["service"], aContQuebra[1]["service"], "O nome do servico deve ser identico entre as duas versoes.")
+        assertEquals(aContUnica[1]["desc"], aContQuebra[1]["desc"], "A DESCRIPTION deve ser identica entre as duas versoes.")
+        assertEquals(Len(aContUnica[1]["wsdata"]), Len(aContQuebra[1]["wsdata"]), "A quantidade de WSDATA deve ser identica entre as duas versoes.")
+
+        If Len(aContUnica[1]["wsdata"]) == 1 .And. Len(aContQuebra[1]["wsdata"]) == 1
+            assertEquals(aContUnica[1]["wsdata"][1]["name"], aContQuebra[1]["wsdata"][1]["name"], "O nome do WSDATA deve ser identico entre as duas versoes.")
+        EndIf
+    EndIf
+
+    // Limpeza dos arquivos temporarios criados por este teste (best-effort).
+    FErase(cDir + "_test-sem-bloco.prw")
+    FErase(cDir + "_test-const.prw")
+    FErase(cDir + "_test-array.prw")
+    FErase(cDir + "_test-cont-unica.prw")
+    FErase(cDir + "_test-cont-quebra.prw")
+
+Return .T.

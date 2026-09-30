@@ -1,0 +1,398 @@
+#include "tlpp-core.th"
+#include "totvs.ch"
+
+namespace custom.openapi.adapter.advpl
+
+Using Namespace tlpp.regex
+
+/*/{Protheus.doc} OApiWsrParser
+    Le um arquivo-fonte AdvPL/TLPP e extrai, por parsing de texto, os metadados do bloco de
+    definicao WSRESTFUL ... END WSRESTFUL (servico, descricao, parametros WSDATA). O parsing das
+    operacoes WSMETHOD fica para um incremento seguinte - methods e sempre devolvido vazio nesta
+    tarefa. Nao existe API de reflection para enumerar servicos WSRESTFUL em runtime (confirmado
+    por grep nas fontes padrao do Protheus) - por isso o adaptador le o texto-fonte em vez de
+    introspeccao, ao contrario do adaptador TL++ (Fase 3). Algoritmo hibrido confirmado pelo
+    spike T1 (Ramo A): Regex():Tokenizer() localiza a posicao de cada ocorrencia relevante (mais
+    robusto que At() para nao confundir a declaracao real com uma ocorrencia incidental da
+    palavra WSRESTFUL dentro de um comentario de documentacao); Tokenizer() so devolve posicoes
+    numericas, nunca o texto capturado pelos grupos do padrao, entao a extracao do valor em si e
+    manual (SubStr()/tokenizacao por espaco) a partir da posicao confirmada.
+    @type class
+    @author Dirlei Silva
+    @since 2026-09-30
+*/
+class OApiWsrParser
+
+    public method new() as object
+    public method parse(cFilePath as character) as array
+
+endclass
+
+/*/{Protheus.doc} OApiWsrParser::new
+    Construtor sem estado - OApiWsrParser nao guarda nada entre chamadas.
+    @type method
+    @author Dirlei Silva
+    @since 2026-09-30
+    @return object, a propria instancia
+*/
+method new() as object class OApiWsrParser
+return self
+
+/*/{Protheus.doc} OApiWsrParser::parse
+    Le cFilePath via MemoRead(), reune continuacoes ";" de linha fisica em um espaco (Ramo A,
+    ver design.md) e extrai cada bloco WSRESTFUL ... END WSRESTFUL encontrado no texto. Um
+    arquivo sem nenhum bloco, ou que MemoRead() nao consiga ler, devolve um array vazio sem
+    lancar excecao (ADVP-04, ADVP-08). cFilePath e relativo ao RootPath do ambiente - uma
+    User Function exposta via @Get/@Post roda como job HTTP sem interface remota, que so
+    enxerga caminhos relativos (sem letra de drive); ver design.md, "Restricao de plataforma:
+    RootPath".
+    @type method
+    @author Dirlei Silva
+    @since 2026-09-30
+    @param cFilePath, character, Caminho do arquivo .prw/.prg relativo ao RootPath do ambiente
+    @return array, Um Json {service, desc, wsdata, methods, pending} por servico WSRESTFUL encontrado
+*/
+method parse(cFilePath as character) as array class OApiWsrParser
+
+    Local cText   := "" as Character
+    Local cJoined := "" as Character
+    Local aResult := {} as Array
+    Local aStarts := {} as Array
+    Local aEnds   := {} as Array
+    Local cBlock  := "" as Character
+    Local jServ   as Json
+    Local nI      := 0 as Numeric
+
+    cText := MemoRead(cFilePath, .F.)
+
+    If !Empty(cText)
+        cJoined := StrTran(cText, ";" + Chr(13) + Chr(10), " ")
+        cJoined := StrTran(cJoined, ";" + Chr(10), " ")
+
+        aStarts := FindPositions('WSRESTFUL[[:space:]]+[[:alnum:]_]+[[:space:]]+DESCRIPTION', cJoined)
+        aEnds   := FindEndPositions(cJoined)
+
+        For nI := 1 To Len(aStarts)
+            If nI > Len(aEnds) .Or. aEnds[nI] <= aStarts[nI]
+                Exit
+            EndIf
+
+            cBlock := SubStr(cJoined, aStarts[nI], aEnds[nI] - aStarts[nI])
+            jServ  := ParseWsrService(cBlock)
+            AAdd(aResult, jServ)
+        Next nI
+    EndIf
+
+return aResult
+
+/*/{Protheus.doc} FindPositions
+    Localiza todas as posicoes de inicio de ocorrencias de cPattern em cText via
+    Regex():Tokenizer() (SetMultiline .T., SetCaseSensitive .F.). Tokenizer() devolve uma
+    posicao numerica por match encontrado no texto inteiro, nunca o texto capturado pelos
+    grupos (...) do padrao - confirmado por execucao real no spike T1 (design.md, "Ramo A
+    confirmado por evidencia real").
+    @type function
+    @author Dirlei Silva
+    @since 2026-09-30
+    @param cPattern, character, Padrao Regex (POSIX, ex.: "[[:alnum:]_]+")
+    @param cText, character, Texto onde localizar as ocorrencias
+    @return array, Uma posicao numerica (inicio do match) por ocorrencia encontrada, na ordem do texto
+*/
+Static Function FindPositions(cPattern as Character, cText as Character) as Array
+
+    Local oRegex := Regex():New("") as Object
+    Local aOut   := {} as Array
+    Local lFound := .F. as Logical
+
+    oRegex:SetMultiline(.T.)
+    oRegex:SetCaseSensitive(.F.)
+    oRegex:SetPattern(cPattern)
+    lFound := oRegex:Tokenizer(cText, , @aOut)
+    FWFreeObj(oRegex)
+
+    If !lFound
+        aOut := {}
+    EndIf
+
+Return aOut
+
+/*/{Protheus.doc} FindEndPositions
+    Localiza todas as posicoes dos terminadores "END WSRESTFUL" e "ENDWSRESTFUL" em cText
+    (ADVP-07, os dois terminadores sao aceitos), por busca literal case-insensitive (At()),
+    devolvidas em ordem crescente. Nao usa Regex aqui porque a frase completa do terminador nao
+    sofreu, no spike T1, o falso positivo de comentario encontrado para a palavra isolada
+    "WSRESTFUL" (ver design.md).
+    @type function
+    @author Dirlei Silva
+    @since 2026-09-30
+    @param cText, character, Texto onde localizar os terminadores
+    @return array, Posicoes de inicio de cada terminador encontrado, em ordem crescente
+*/
+Static Function FindEndPositions(cText as Character) as Array
+
+    Local cUp   := Upper(cText) as Character
+    Local aPos  := {} as Array
+    Local nFrom := 0  as Numeric
+    Local nLen  := Len(cUp) as Numeric
+    Local nPos  := 0  as Numeric
+
+    nFrom := 1
+    Do While nFrom <= nLen
+        nPos := At("END WSRESTFUL", SubStr(cUp, nFrom))
+        If nPos == 0
+            Exit
+        EndIf
+        AAdd(aPos, nFrom + nPos - 1)
+        nFrom := nFrom + nPos - 1 + Len("END WSRESTFUL")
+    EndDo
+
+    nFrom := 1
+    Do While nFrom <= nLen
+        nPos := At("ENDWSRESTFUL", SubStr(cUp, nFrom))
+        If nPos == 0
+            Exit
+        EndIf
+        AAdd(aPos, nFrom + nPos - 1)
+        nFrom := nFrom + nPos - 1 + Len("ENDWSRESTFUL")
+    EndDo
+
+    ASort(aPos)
+
+Return aPos
+
+/*/{Protheus.doc} NextToken
+    Extrai o proximo token de cText a partir de nPos, pulando espacos/tabs/quebras de linha.
+    Um token delimitado por aspas simples ou duplas e devolvido incluindo os delimitadores (o
+    chamador distingue literal de identificador via IsQuotedToken()/UnquoteToken()); um token
+    sem aspas vai ate o proximo espaco em branco. Extracao manual (SubStr()/At()), nao Regex -
+    Tokenizer() so devolve posicoes, nunca o texto capturado (ver design.md, "Ramo A").
+    @type function
+    @author Dirlei Silva
+    @since 2026-09-30
+    @param cText, character, Texto de onde extrair o token
+    @param nPos, numeric, Posicao inicial da busca (1-based)
+    @return array, {cToken, nProximaPosicao} - cToken vazio quando nPos ultrapassa o texto
+*/
+Static Function NextToken(cText as Character, nPos as Numeric) as Array
+
+    Local nLen    := Len(cText) as Numeric
+    Local cQuote  := "" as Character
+    Local nStart  := 0  as Numeric
+    Local cTok    := "" as Character
+    Local cBranco := " " + Chr(9) + Chr(13) + Chr(10) as Character
+
+    Do While nPos <= nLen .And. SubStr(cText, nPos, 1) $ cBranco
+        nPos++
+    EndDo
+
+    If nPos > nLen
+        Return {"", nPos}
+    EndIf
+
+    If SubStr(cText, nPos, 1) == '"' .Or. SubStr(cText, nPos, 1) == "'"
+        cQuote := SubStr(cText, nPos, 1)
+        nStart := nPos
+        nPos++
+        Do While nPos <= nLen .And. SubStr(cText, nPos, 1) != cQuote
+            nPos++
+        EndDo
+        cTok := SubStr(cText, nStart, nPos - nStart + 1)
+        nPos++
+        Return {cTok, nPos}
+    EndIf
+
+    nStart := nPos
+    Do While nPos <= nLen .And. !(SubStr(cText, nPos, 1) $ cBranco)
+        nPos++
+    EndDo
+    cTok := SubStr(cText, nStart, nPos - nStart)
+
+Return {cTok, nPos}
+
+/*/{Protheus.doc} IsQuotedToken
+    Indica se cToken foi delimitado por aspas simples ou duplas por NextToken().
+    @type function
+    @author Dirlei Silva
+    @since 2026-09-30
+    @param cToken, character, Token devolvido por NextToken()
+    @return logical, .T. quando cToken comeca e termina com o mesmo delimitador de aspas
+*/
+Static Function IsQuotedToken(cToken as Character) as Logical
+Return Len(cToken) >= 2 .And. (Left(cToken, 1) == '"' .Or. Left(cToken, 1) == "'")
+
+/*/{Protheus.doc} UnquoteToken
+    Remove o delimitador de aspas (simples ou duplas) das extremidades de cToken.
+    @type function
+    @author Dirlei Silva
+    @since 2026-09-30
+    @param cToken, character, Token entre aspas devolvido por NextToken()
+    @return character, Valor de cToken sem as aspas delimitadoras
+*/
+Static Function UnquoteToken(cToken as Character) as Character
+Return SubStr(cToken, 2, Len(cToken) - 2)
+
+/*/{Protheus.doc} WsTypeKnown
+    Indica se cTipo e um dos tipos WSDATA reconhecidos (STRING, CHARACTER, INTEGER, INT,
+    BOOLEAN). ARRAY e qualquer outro valor sao tratados como desconhecidos pelo chamador,
+    que registra uma pendencia (ADVP-13).
+    @type function
+    @author Dirlei Silva
+    @since 2026-09-30
+    @param cTipo, character, Tipo declarado apos "AS" em uma clausula WSDATA
+    @return logical, .T. quando o tipo e reconhecido
+*/
+Static Function WsTypeKnown(cTipo as Character) as Logical
+
+    Local cUp := Upper(AllTrim(cTipo)) as Character
+
+Return cUp == "STRING" .Or. cUp == "CHARACTER" .Or. cUp == "INTEGER" .Or. cUp == "INT" .Or. cUp == "BOOLEAN"
+
+/*/{Protheus.doc} WsTypeToSchema
+    Mapeia um tipo WSDATA para o discriminante de schema OpenAPI correspondente (ADVP-10 a
+    ADVP-13): STRING/CHARACTER -> string, INTEGER/INT -> integer, BOOLEAN -> boolean; ARRAY ou
+    qualquer tipo desconhecido -> string (o chamador registra a pendencia de tipo nao suportado).
+    @type function
+    @author Dirlei Silva
+    @since 2026-09-30
+    @param cTipo, character, Tipo declarado apos "AS" em uma clausula WSDATA
+    @return character, Discriminante de schema OpenAPI: string, integer ou boolean
+*/
+Static Function WsTypeToSchema(cTipo as Character) as Character
+
+    Local cUp  := Upper(AllTrim(cTipo)) as Character
+    Local cRes := "string" as Character
+
+    Do Case
+    Case cUp == "STRING" .Or. cUp == "CHARACTER"
+        cRes := "string"
+    Case cUp == "INTEGER" .Or. cUp == "INT"
+        cRes := "integer"
+    Case cUp == "BOOLEAN"
+        cRes := "boolean"
+    Otherwise
+        cRes := "string"
+    EndCase
+
+Return cRes
+
+/*/{Protheus.doc} ParseWsData
+    Localiza e extrai cada clausula "WSDATA <nome> AS <tipo> [OPTIONAL]" em cBlock. Para cada
+    ocorrencia localizada por FindPositions(), tokeniza manualmente a partir da posicao
+    confirmada (WSDATA, nome, AS, tipo e, opcionalmente, a palavra OPTIONAL logo em seguida).
+    Tipos desconhecidos viram "string" com uma pendencia acumulada (ADVP-13).
+    @type function
+    @author Dirlei Silva
+    @since 2026-09-30
+    @param cBlock, character, Texto do bloco WSRESTFUL onde localizar as clausulas WSDATA
+    @param cServico, character, Nome do servico, usado como contexto das pendencias registradas
+    @return object, Json {items: array de {name, type, optional}, pending: array de {context, msg}}
+*/
+Static Function ParseWsData(cBlock as Character, cServico as Character) as Json
+
+    Local jRes   := JsonObject():New() as Json
+    Local aItems := {} as Array
+    Local aPend  := {} as Array
+    Local aPos   := {} as Array
+    Local nI     := 0  as Numeric
+    Local nPos   := 0  as Numeric
+    Local aTok   := {} as Array
+    Local cNome  := "" as Character
+    Local cTipo  := "" as Character
+    Local lOpt   := .F. as Logical
+    Local jItem  as Json
+    Local jPend  as Json
+
+    aPos := FindPositions('WSDATA[[:space:]]+[[:alnum:]_]+[[:space:]]+AS[[:space:]]+[[:alnum:]_]+', cBlock)
+
+    For nI := 1 To Len(aPos)
+        nPos := aPos[nI]
+
+        aTok  := NextToken(cBlock, nPos)     // "WSDATA"
+        nPos  := aTok[2]
+        aTok  := NextToken(cBlock, nPos)     // <nome>
+        cNome := aTok[1]
+        nPos  := aTok[2]
+        aTok  := NextToken(cBlock, nPos)     // "AS"
+        nPos  := aTok[2]
+        aTok  := NextToken(cBlock, nPos)     // <tipo>
+        cTipo := aTok[1]
+        nPos  := aTok[2]
+
+        aTok := NextToken(cBlock, nPos)      // OPTIONAL, se presente
+        lOpt := Upper(aTok[1]) == "OPTIONAL"
+
+        If !WsTypeKnown(cTipo)
+            jPend := JsonObject():New()
+            jPend["context"] := cServico
+            jPend["msg"]      := "WSDATA " + cNome + ": tipo " + Upper(AllTrim(cTipo)) + " nao suportado, usando string"
+            AAdd(aPend, jPend)
+        EndIf
+
+        jItem := JsonObject():New()
+        jItem["name"]     := cNome
+        jItem["type"]     := WsTypeToSchema(cTipo)
+        jItem["optional"] := lOpt
+        AAdd(aItems, jItem)
+    Next nI
+
+    jRes["items"]   := aItems
+    jRes["pending"] := aPend
+
+Return jRes
+
+/*/{Protheus.doc} ParseWsrService
+    Monta o Json de um servico a partir do bloco WSRESTFUL ja isolado (cBlock, do cabecalho ate
+    o terminador, exclusive, com continuacoes ";" ja reunidas pelo chamador). Extrai o cabecalho
+    (nome do servico e DESCRIPTION - literal ou constante simbolica, ADVP-04 a ADVP-06) e os
+    WSDATA (ADVP-09 a ADVP-13); methods e sempre devolvido vazio nesta tarefa (ADVP-14 em diante
+    fica para T3).
+    @type function
+    @author Dirlei Silva
+    @since 2026-09-30
+    @param cBlock, character, Texto do bloco WSRESTFUL, do cabecalho ate o terminador (exclusive)
+    @return object, Json {service, desc, wsdata, methods, pending}
+*/
+Static Function ParseWsrService(cBlock as Character) as Json
+
+    Local jServ    := JsonObject():New() as Json
+    Local cServico := "" as Character
+    Local cDesc    := "" as Character
+    Local aPending := {} as Array
+    Local jWsData  as Json
+    Local aTok     := {} as Array
+    Local nPos     := 1  as Numeric
+    Local jPend    as Json
+    Local nI       := 0  as Numeric
+
+    // cabecalho: WSRESTFUL <nome> DESCRIPTION <literal|constante>
+    aTok     := NextToken(cBlock, nPos)      // "WSRESTFUL"
+    nPos     := aTok[2]
+    aTok     := NextToken(cBlock, nPos)      // <nome>
+    cServico := aTok[1]
+    nPos     := aTok[2]
+    aTok     := NextToken(cBlock, nPos)      // "DESCRIPTION"
+    nPos     := aTok[2]
+    aTok     := NextToken(cBlock, nPos)      // literal ou constante
+
+    If IsQuotedToken(aTok[1])
+        cDesc := UnquoteToken(aTok[1])
+    Else
+        cDesc := ""
+        jPend := JsonObject():New()
+        jPend["context"] := cServico
+        jPend["msg"]      := "DESCRIPTION usa constante " + aTok[1] + " - valor nao resolvido"
+        AAdd(aPending, jPend)
+    EndIf
+
+    jWsData := ParseWsData(cBlock, cServico)
+    For nI := 1 To Len(jWsData["pending"])
+        AAdd(aPending, jWsData["pending"][nI])
+    Next nI
+
+    jServ["service"] := cServico
+    jServ["desc"]     := cDesc
+    jServ["wsdata"]   := jWsData["items"]
+    jServ["methods"]  := {}
+    jServ["pending"]  := aPending
+
+Return jServ

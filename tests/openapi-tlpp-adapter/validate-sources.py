@@ -508,20 +508,26 @@ def check_global_forbidden_patterns():
         r"(?i)\bIIF[\t ]*\(": "IIF() é proibido; use If/Else/EndIf.",
     }
 
-    source_roots = [
-        REPO_ROOT / "src" / "adapters",
-        REPO_ROOT / "tests" / "openapi-tlpp-adapter",
+    # Lista explícita (não glob) porque src/adapters/ passou a abrigar também o adaptador AdvPL
+    # (Fase 4, custom.openapi.adapter.advpl.*.tlpp) - esse adaptador lê texto-fonte via
+    # MemoRead()/MemoWrite() por necessidade (não há reflection equivalente para WSRESTFUL), o
+    # oposto da premissa do adaptador TL++ verificada aqui. Um glob "*.tlpp" pegaria os dois.
+    tlpp_adapter_sources = [
+        REPO_ROOT / "src" / "adapters" / "custom.openapi.adapter.discovery.tlpp",
+        REPO_ROOT / "src" / "adapters" / "custom.openapi.adapter.path.tlpp",
+        REPO_ROOT / "src" / "adapters" / "custom.openapi.adapter.metadata.tlpp",
+        REPO_ROOT / "src" / "adapters" / "custom.openapi.adapter.build.tlpp",
+        REPO_ROOT / "tests" / "openapi-tlpp-adapter" / "custom.openapi.tlpp.adapter.test.tlpp",
     ]
 
-    for source_root in source_roots:
-        if not source_root.is_dir():
+    for source in tlpp_adapter_sources:
+        if not source.is_file():
             continue
-        for source in sorted(source_root.glob("*.tlpp")):
-            content = get_cp1252_content(source)
-            validation_content = strip_comments(content)
-            for pattern, message in forbidden.items():
-                if re.search(pattern, validation_content):
-                    raise ContractError(f"{message} Fonte: {source}")
+        content = get_cp1252_content(source)
+        validation_content = strip_comments(content)
+        for pattern, message in forbidden.items():
+            if re.search(pattern, validation_content):
+                raise ContractError(f"{message} Fonte: {source}")
 
 
 def main():

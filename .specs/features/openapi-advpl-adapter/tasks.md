@@ -2,7 +2,7 @@
 
 **Design:** `.specs/features/openapi-advpl-adapter/design.md`  
 **Spec:** `.specs/features/openapi-advpl-adapter/spec.md`  
-**Estado:** T1 CONCLUIDO (2026-09-28) — Ramo A confirmado por execucao real, algoritmo de extracao decidido (Tokenizer localiza + SubStr extrai), diario tecnico escrito. Proximo: T2 (`OApiWsrParser` real)
+**Estado:** T2 CONCLUIDO (2026-09-30) — `OApiWsrParser` real compilado e validado via PROBAT (fixture `OApiWsrTst`, 24 asserções) no `P12_2510`, sem `THREAD ERROR` nem `>> assert << - result: ERROR`. Proximo: T3 (extracao de `WSMETHOD`)
 
 ## Plano de execução
 
@@ -74,7 +74,7 @@ esse e o objetivo central deste spike.
 
 ---
 
-## T2: Parser do bloco WSRESTFUL — reconhecimento e WSDATA
+## T2: Parser do bloco WSRESTFUL — reconhecimento e WSDATA — CONCLUIDO
 
 **O quê:** classe `OApiWsrParser` (`Method parse(cFilePath) as Array`) que:
 1. Lê o arquivo com `MemoRead()`.
@@ -97,13 +97,14 @@ Nesta tarefa, `methods` é retornado como array vazio — o parsing de `WSMETHOD
 
 **Concluída quando:**
 
-- [ ] `parse("examples/openapi-advpl-adapter/hello-advpl.prw")` retorna um array com um `Json` contendo `service = "HelloAdvpl"`, `desc = "Hello World AdvPL com parametros"`, `wsdata` com um item `{name:"language", type:"string", optional:.T.}`, `methods = {}`, `pending = {}`.
-- [ ] Arquivo sem nenhum bloco `WSRESTFUL` retorna array vazio sem falhar.
-- [ ] `DESCRIPTION` com constante simbólica (simulada com um arquivo de teste embutido como string) retorna `desc = ""` e uma pendência com o nome da constante.
-- [ ] `WSDATA x AS ARRAY` retorna `type = "string"` e uma pendência de tipo não suportado.
-- [ ] Continuação `;` em `WSRESTFUL ... DESCRIPTION ...;` é reunida corretamente antes da extração.
-- [ ] Testes PROBAT: mínimo 8 asserções; sem `THREAD ERROR`; sem `>> assert << - result: ERROR`.
-- [ ] Compilação `[SUCCESS]` nos fontes novos. Encoding CP-1252 sem BOM verificado.
+- [x] `parse("/openapi-advpl-adapter/hello-advpl.prw")` retorna um array com um `Json` contendo `service = "HelloAdvpl"`, `desc = "Hello World AdvPL com parametros"`, `wsdata` com um item `{name:"language", type:"string", optional:.T.}`, `methods = {}`, `pending = {}` (validado via PROBAT — caminho relativo ao RootPath, ver "Restrição de plataforma: RootPath" em design.md).
+- [x] Arquivo sem nenhum bloco `WSRESTFUL` retorna array vazio sem falhar.
+- [x] `DESCRIPTION` com constante simbólica (arquivo de teste embutido gravado via `MemoWrite()`, já que `parse()` só aceita caminho de arquivo) retorna `desc = ""` e uma pendência com o nome da constante.
+- [x] `WSDATA x AS ARRAY` retorna `type = "string"` e uma pendência de tipo não suportado.
+- [x] Continuação `;` em `WSRESTFUL ... DESCRIPTION ...;` é reunida corretamente antes da extração (comparado byte-a-byte contra a versão equivalente em uma linha só).
+- [x] Testes PROBAT: 24 asserções (acima do mínimo de 8) no fixture `OApiWsrTst`; execução real no `P12_2510` em 2026-09-30 sem `THREAD ERROR` nem `>> assert << - result: ERROR` (thread finalizou limpo).
+- [x] Compilação `[SUCCESS]` nos 2 fontes novos (`custom.openapi.adapter.advpl.parser.tlpp`, `custom.openapi.advpl.adapter.test.tlpp`) confirmada pelo usuário em 2026-09-30. Encoding CP-1252 sem BOM verificado (contrato estático `tests/openapi-advpl-adapter/validate-sources.py` passou).
+- [x] Conflito descoberto e corrigido: `tests/openapi-tlpp-adapter/validate-sources.py` proibia `MemoRead`/`MemoWrite` via glob `src/adapters/*.tlpp` — pegaria também o novo `OApiWsrParser`, que precisa dessas chamadas (o oposto da premissa do adaptador TL++). Corrigido para lista explícita dos 4 fontes do adaptador TL++, sem afetar o adaptador AdvPL.
 
 **Commit:** `feat(openapi): OApiWsrParser extrai servico e WSDATA do bloco WSRESTFUL`
 
